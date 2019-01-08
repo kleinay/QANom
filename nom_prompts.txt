@@ -1,0 +1,10 @@
+0	President Fidel Castro said Tuesday his government told U.S. officials it is worried that Miami - based exiles might take Elian Gonzalez to another country or even harm him if they lose their battle to block the boy 's return to Cuba .	33	battle
+1	President Fidel Castro said Tuesday his government told U.S. officials it is worried that Miami - based exiles might take Elian Gonzalez to another country or even harm him if they lose their battle to block the boy 's return to Cuba .	39	return
+2	Castro said his government had shared its concerns with the U.S. State Department about the possibility of such a move ' ' which could cause damage not only to a child , but to the reputation of the United States . ''	19	move
+3	Castro said his government had shared its concerns with the U.S. State Department about the possibility of such a move ' ' which could cause damage not only to a child , but to the reputation of the United States . ''	25	damage
+4	A State Department duty officer said she had no information on a threat to Elian and was unaware of Castro 's remarks .	12	threat
+5	A State Department duty officer said she had no information on a threat to Elian and was unaware of Castro 's remarks .	21	remarks
+6	The Cuban leader first raised those worries during another live television appearance Sunday night during a speech to about 700 Cuban university students .	6	worries
+7	The Cuban leader first raised those worries during another live television appearance Sunday night during a speech to about 700 Cuban university students .	11	appearance
+8	The Cuban leader first raised those worries during another live television appearance Sunday night during a speech to about 700 Cuban university students .	16	speech
+9	But it was not until Tuesday that Castro revealed that those concerns had been shared directly with the U.S. government .	11	concerns
