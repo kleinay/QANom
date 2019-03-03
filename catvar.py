@@ -23,5 +23,7 @@ def get_catvar_pairs():
     catvar_pairs = flatten(catvar_pairs)
     return catvar_pairs
 catvar_pairs = get_catvar_pairs()
+
+# catvar_pairs contains 16810 pairs for 13788 nouns (keys)
 def catvariate(noun):
     return [verb for n,verb in catvar_pairs if n==noun]
