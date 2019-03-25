@@ -7,6 +7,6 @@ There, the function used to filter candidate nouns from a sentence string is `ge
 1. Lexical Resources based - Use WordNet & CatVar derivations. Any noun with verbal related derivation would be predicted as nom.
 2. Affixes + seed based - Create a (possible-nominalization -> verb) list out of a verb seed list, using simple nom. affixes substitution rules. Being in the list will be considered as being a nominalization candidate.
 
-Filter 1 (`wordnet_util.py` + `catvar.py`) requires wordnet (available via nltk) and CatVar (attached, extract into "resources" dir under main QANom dir. Doesn't require installation).
+Filter 1 (`wordnet_util.py` + `catvar.py`) requires wordnet (available via [nltk](https://www.nltk.org/)) and [CatVar](https://clipdemos.umiacs.umd.edu/catvar/) (contact to get it; extract into "resources" dir under main QANom dir. Doesn't require installation).
 Filter 2 (`verb_to_nom.py`) uses [pattern.en](https://www.clips.uantwerpen.be/pages/pattern-en) package.  
 
