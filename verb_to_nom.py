@@ -1,16 +1,16 @@
-import sys, os, catvar, pattern
+import sys, os, catvar, pattern.en
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
 # lists of verbs
 # from pattern - 8.5K
-all_pattern_verbs = pattern.en.verbs.infinitives.keys()
+all_pattern_verbs = list(pattern.en.verbs.infinitives.keys())
 # from wordnet - 8.7K
 all_wn_verbs = sorted(set(l.name()
                 for v_syn in wn.wordnet.all_synsets(pos="v")
                 for l in v_syn.lemmas()
                 if "_" not in l.name()))
 # from verbnet - 3.6K
-all_verbnet_verbs = verbnet.lemmas()
+all_verbnet_verbs = list(verbnet.lemmas())
 # together - 10.6K
 infinitives = sorted(set(all_wn_verbs + all_pattern_verbs + all_verbnet_verbs))
 
