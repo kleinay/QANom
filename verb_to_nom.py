@@ -1,9 +1,9 @@
-import sys, os, catvar, pattern.en
+import pattern3.en as pattern
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
 # lists of verbs
 # from pattern - 8.5K
-all_pattern_verbs = list(pattern.en.verbs.infinitives.keys())
+all_pattern_verbs = list(pattern.verbs.infinitives.keys())
 # from wordnet - 8.7K
 all_wn_verbs = sorted(set(l.name()
                 for v_syn in wn.wordnet.all_synsets(pos="v")
@@ -15,7 +15,7 @@ all_verbnet_verbs = list(verbnet.lemmas())
 infinitives = sorted(set(all_wn_verbs + all_pattern_verbs + all_verbnet_verbs))
 
 def as_gerund(verb):
-    return pattern.en.conjugate(verb, aspect=pattern.en.PROGRESSIVE)
+    return pattern.conjugate(verb, aspect=pattern.PROGRESSIVE)
 
 def with_suffix(verb, suffix, replace=[]):
     for suf_to_replace in sorted(replace, key=lambda s:len(s), reverse=True):
@@ -25,7 +25,7 @@ def with_suffix(verb, suffix, replace=[]):
 
 def replace_suffix(verb, replacements):
     # replacements is dict {"current-suffix" : "new-suffix"}
-    for suf, new_suf in sorted(replacements.items(), key=lambda (k,v): len(k), reverse=True):
+    for suf, new_suf in sorted(replacements.items(), key=lambda pair: len(pair[0]), reverse=True):
         if verb.endswith(suf):
             return verb.rstrip(suf) + new_suf
     return verb
