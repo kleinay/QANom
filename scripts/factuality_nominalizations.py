@@ -1,8 +1,7 @@
-import io, sys
+import io
+import sys
+
 import pandas as pd
-import to_verb
-from nltk.corpus import wordnet as wn
-from catvar import catvar_pairs
 
 COL_NAMES = ["tok-id", "tok", "factuality", "pos", "dep-head", "dep-label", "lemma"]
 

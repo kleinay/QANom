@@ -11,8 +11,11 @@ Logic building blocks:
 
 """
 
-import pandas as pd, numpy as np, sys, os, json, nltk
-import to_verb, catvar, verb_to_nom
+import nltk
+import pandas as pd
+
+from scripts import catvar, verb_to_nom, wordnet_util
+
 affixes_based_potential_noms = verb_to_nom.get_all_possible_nominalizations()
 from nltk.parse import CoreNLPParser
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
@@ -75,10 +78,10 @@ def get_candidate_nouns(sentence):
 
 # verbalize using both WordNet and CatVar
 def get_verb_forms_from_lexical_resources(nn):
-    wordnet_verbs = to_verb.convert_pos(nn, to_verb.WN_NOUN, to_verb.WN_VERB)
+    wordnet_verbs = wordnet_util.convert_pos(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB)
     catvar_verbs = catvar.catvariate(nn)
     # sort by distance
-    vrbs = [v for v,w in to_verb.results_by_edit_distance(nn, wordnet_verbs + catvar_verbs)]
+    vrbs = [v for v,w in wordnet_util.results_by_edit_distance(nn, wordnet_verbs + catvar_verbs)]
     if vrbs:
         return vrbs, True
     else:

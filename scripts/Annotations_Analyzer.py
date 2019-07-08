@@ -4,7 +4,8 @@
 # In[1]:
 
 
-import os, pandas as pd, sys
+import pandas as pd
+
 pd.set_option('display.max_colwidth',400)
 
 """
@@ -46,7 +47,7 @@ def compute_iaa(df):
     agreedPrompts = (gSer.max() == gSer.min()) # agreedPrompts is a boolean series, per id, is it agreed among all workers
     nAgreed = agreedPrompts.sum()
     iaa = float(nAgreed) / nHits
-    print "Agreeing on "+ str(nAgreed) + " out of " + str(nHits) + " ({}%)".format(iaa) 
+    print("Agreeing on "+ str(nAgreed) + " out of " + str(nHits) + " ({}%)".format(iaa))
     return iaa
 
 prediction_column = 'Answer.is_action_noun_yes.on'
@@ -56,17 +57,17 @@ def compare_to_gold_column(df, gold_column, prediction_column='Answer.is_action_
     agreeSer = (df[prediction_column] == df[gold_column]) # boolean Series (same rows) whether prediction is agreeeing with gold
     accuracy = float(agreeSer.sum()) / agreeSer.size # how many correct predictions 
     gold_nominalizations = df[gold_column].sum()
-    print "%s: ( %d \\ %d correct nominalizations); prediction overall accuracy is %.2f" %         (gold_column, gold_nominalizations, agreeSer.size, accuracy)
+    print("%s: ( %d \\ %d correct nominalizations); prediction overall accuracy is %.2f" %         (gold_column, gold_nominalizations, agreeSer.size, accuracy))
     predicted_positive = df[prediction_column].sum()
     predicted_negative = (~df[prediction_column]).sum()
     tp = (df[gold_column] & df[prediction_column]).sum()
     fp = ((~df[gold_column]) & df[prediction_column]).sum()
     fn = (df[gold_column] & (~df[prediction_column])).sum()
-    print "tp:",tp,"\\",predicted_positive, "\t fp:", fp,"\\",predicted_positive, "\t fn:",fn,"\\",predicted_negative
+    print("tp:",tp,"\\",predicted_positive, "\t fp:", fp,"\\",predicted_positive, "\t fn:",fn,"\\",predicted_negative)
     precision = float(tp)/predicted_positive
     recall = float(tp)/gold_nominalizations
     f1 = 2*precision*recall / (precision+recall)
-    print "f1:%.2f \t P:%.2f \t R: %.2f" % (f1, precision, recall)
+    print("f1:%.2f \t P:%.2f \t R: %.2f" % (f1, precision, recall))
     
 def compare_to_columns(df, gold_columns):
     for gold_column in gold_columns:
