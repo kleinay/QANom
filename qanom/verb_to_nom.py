@@ -3,7 +3,13 @@ from nltk import wordnet as wn
 from nltk.corpus import verbnet
 # lists of verbs
 # from pattern - 8.5K
-all_pattern_verbs = list(pattern.verbs.infinitives.keys())
+"""
+Currently pattern3.en have bugs in this verbs.infinitives class.
+Don't use their verb seed. 
+
+commented out: all_pattern_verbs = list(pattern.verbs.infinitives)
+"""
+all_pattern_verbs = []
 # from wordnet - 8.7K
 all_wn_verbs = sorted(set(l.name()
                 for v_syn in wn.wordnet.all_synsets(pos="v")
@@ -81,8 +87,8 @@ def get_deverbal_dict(verb_seed=infinitives, multipleEntriesPerNom=False):
     """
     pairs = get_deverbal_pairs(verb_seed=verb_seed)
     if multipleEntriesPerNom:
-        import scripts.utils
-        return scripts.utils.dictOfLists(pairs)
+        import qanom.utils
+        return qanom.utils.dictOfLists(pairs)
     else:
         return dict(pairs)
 

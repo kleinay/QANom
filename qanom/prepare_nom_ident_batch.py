@@ -15,7 +15,7 @@ import nltk
 import pandas as pd
 from nltk.parse import CoreNLPParser
 
-from scripts import catvar as catvar_util, verb_to_nom, wordnet_util
+from qanom import catvar as catvar_util, verb_to_nom, wordnet_util
 
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
 

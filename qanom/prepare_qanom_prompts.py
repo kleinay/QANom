@@ -24,7 +24,7 @@ Logic building blocks:
 import json
 import sys
 
-from scripts import prepare_nom_ident_batch
+from qanom import prepare_nom_ident_batch
 
 if __name__ == "__main__":
     """ Read from command line arguments. """
