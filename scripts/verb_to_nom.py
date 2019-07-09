@@ -69,12 +69,43 @@ def verb_to_all_possible_nominalizations(verb):
     return all_verb_derived_noms
 
 
+def get_deverbal_dict(verb_seed=infinitives, multipleEntriesPerNom=False):
+    """
+    verb_seed is a list of verbs (infinitive form).
+    Returns:
+        multipleEntriesPerNom==False:   a dict { nom : source-verb }
+        multipleEntriesPerNom==True:    a dict { nom : [source-verbs] }
+    Note: when multipleEntriesPerNom == False, function is not handling cases where
+    the same affix-based potential nominalization is derived from multiple verbs.
+    The dict will conflate these arbitrarily.
+    """
+    pairs = get_deverbal_pairs(verb_seed=verb_seed)
+    if multipleEntriesPerNom:
+        import scripts.utils
+        return scripts.utils.dictOfLists(pairs)
+    else:
+        return dict(pairs)
+
 def get_deverbal_pairs(verb_seed=infinitives):
-    # verb_seed is a list of verbs (infinitive form)
-    return {nom : verb
+    """
+    verb_seed is a list of verbs (infinitive form).
+    Return a list of (possible-nom, source-verb) based on affix heuristics for each verb in verb_seed.
+    """
+    return [(nom, verb)
             for verb in verb_seed
-            for nom in verb_to_all_possible_nominalizations(verb)}
+            for nom in verb_to_all_possible_nominalizations(verb)]
 
 
 def get_all_possible_nominalizations(verb_seed=infinitives):
-    return get_deverbal_pairs(verb_seed).keys()
+    return get_deverbal_dict(verb_seed).keys()
+
+# End usage - create verb_to_nom list and query noun for source verbs
+def get_source_verbs(nn):
+    """ Return a list of source verbs per noun if noun is in artificially generated verb_to_nom list.
+        If noun is not in list, returns empty list.
+    """
+    affixes_based_nom_dict = get_deverbal_dict(multipleEntriesPerNom=True)
+    if nn in affixes_based_nom_dict:
+        return affixes_based_nom_dict[nn]
+    else:
+        return []
