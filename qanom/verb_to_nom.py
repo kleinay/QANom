@@ -1,6 +1,9 @@
 import pattern.en as pattern
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
+
+import utils
+
 # lists of verbs
 # from pattern - 8.5K
 """
@@ -104,8 +107,7 @@ class SuffixBasedNominalizationCandidates:
         """
         pairs = self.get_deverbal_pairs()
         if multipleEntriesPerNom:
-            import qanom.utils
-            return qanom.utils.dictOfLists(pairs)
+            return utils.dictOfLists(pairs)
         else:
             return dict(pairs)
 
