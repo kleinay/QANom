@@ -28,9 +28,10 @@ import prepare_nom_ident_batch
 
 if __name__ == "__main__":
     """ Read from command line arguments. """
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 3:
         raise Exception("Missing command line arguments: 2 required - sentence.csv (input) and prompts.json (output) ")
-    sentences_csv_fn, prompts_json_fn = sys.argv
+    # assume last two are the required arguments
+    sentences_csv_fn, prompts_json_fn = sys.argv[-2:]
 
     """ Define which resources should be used for filtering nouns as candidate nominalizations. """
     resources = {"wordnet" : True,

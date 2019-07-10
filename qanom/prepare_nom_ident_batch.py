@@ -16,8 +16,10 @@ import pandas as pd
 from nltk.parse import CoreNLPParser
 
 import catvar as catvar_util
-import verb_to_nom
 import wordnet_util
+
+from verb_to_nom import SuffixBasedNominalizationCandidates as VTN
+vtn = VTN()
 
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
 
@@ -92,7 +94,7 @@ def get_verb_forms_from_lexical_resources(nn,
     wordnet_verbs = wordnet_util.convert_pos(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB) \
         if wordnet else []
     catvar_verbs = catvar_util.catvariate(nn) if catvar else []
-    affixes_heuristic_verbs = verb_to_nom.get_source_verbs(nn) if affixes_heuristic else []
+    affixes_heuristic_verbs = vtn.get_source_verbs(nn) if affixes_heuristic else []
     # sort by distance
     vrbs = wordnet_verbs + catvar_verbs + affixes_heuristic_verbs
     vrbs = [v for v, w in wordnet_util.results_by_edit_distance(nn, vrbs)]
@@ -106,7 +108,7 @@ def get_verb_forms_from_lexical_resources(nn,
 def get_candidate_nouns_from_csv(csv_fn):
     sentences = get_sentences_from_csv(csv_fn)
     all_candidates = [(sid, i, nn)
-                      for sid, sentence in sentences.iteritems()
+                      for sid, sentence in sentences.items()
                       for i, nn in get_candidate_nouns(sentence)
                       ]
     return all_candidates
@@ -119,7 +121,7 @@ def get_candidate_nouns_from_raw_csv(csv_fn, **resources):
     """
     sentences = get_sentences_from_csv(csv_fn)
     all_candidates = []
-    for sid, sentence in sentences.iteritems():
+    for sid, sentence in sentences.items():
         tokenized_sent = nltk.word_tokenize(sentence)
         for idx, nn in get_candidate_nouns(sentence, **resources):
             verb_forms, is_had_verbs = get_verb_forms_from_lexical_resources(nn, **resources)
