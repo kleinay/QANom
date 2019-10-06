@@ -45,10 +45,13 @@ def span_to_text(span: Argument, tokens: List[str]) -> str:
 
 def decode_span(span_str: str) -> Argument:
     splits = span_str.split(":")
+
     return int(splits[0]), int(splits[1])
 
 
 def decode_argument(arg_str: str) -> List[Argument]:
+    if not arg_str:
+        return []
     ranges = arg_str.split(SPAN_SEPARATOR)
     if ranges[0] == NO_RANGE:
         return ranges
@@ -59,7 +62,7 @@ def decode_argument(arg_str: str) -> List[Argument]:
 
 def decode_qasrl(qasrl_df: pd.DataFrame) -> pd.DataFrame:
     # WHY WHY WHY WE HAVE NULLS??? (see below why)
-    qasrl_df.dropna(subset=['qasrl_id', 'verb_idx', 'question'], inplace=True)
+    # qasrl_df.dropna(subset=['qasrl_id', 'verb_idx', 'question'], inplace=True)
     cols = set(qasrl_df.columns)
     answer_range_cols = set([col for col in cols if "answer_range" in col])
     answer_cols = set([col for col in cols if "answer" in col]) - answer_range_cols
@@ -74,12 +77,16 @@ def decode_qasrl(qasrl_df: pd.DataFrame) -> pd.DataFrame:
     # ])
     # drop them, for now
 
-    if answer_cols:
-        qasrl_df.dropna(subset=answer_cols, inplace=True)
+    #if answer_cols:
+    #    qasrl_df.dropna(subset=answer_cols, inplace=True)
 
     for c in answer_cols:
+        # qasrl_df[c] = qasrl_df[c].astype(str)
+        qasrl_df[c].fillna("", inplace=True)
         qasrl_df[c] = qasrl_df[c].apply(lambda a: a.split(SPAN_SEPARATOR))
     for c in answer_range_cols:
+        # qasrl_df[c] = qasrl_df[c].astype(str)
+        qasrl_df[c].fillna("", inplace=True)
         qasrl_df[c] = qasrl_df[c].apply(decode_argument)
 
     for c in QUESTION_FIELDS:

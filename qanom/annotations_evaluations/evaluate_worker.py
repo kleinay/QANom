@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 import pandas as pd
 
 from annotations_evaluations.argument_first_evaluation import eval_datasets
+from annotations_evaluations.common import read_csv
 from annotations_evaluations.decode_encode_answers import decode_qasrl
 
 
@@ -21,9 +22,9 @@ def main():
     qasrl_path = args.qasrl_path
     out_dir = args.out_dir
 
-    qasrl = decode_qasrl(pd.read_csv(qasrl_path))
-    ref = decode_qasrl(pd.read_csv(args.ref_path))
-    sents = pd.read_csv(args.sent_path)
+    qasrl = decode_qasrl(read_csv(qasrl_path))
+    ref = decode_qasrl(read_csv(args.ref_path))
+    sents = read_csv(args.sent_path)
     sent_map = dict(zip(sents.qasrl_id, sents.tokens.apply(str.split)))
 
     worker_data = []
@@ -38,7 +39,7 @@ def main():
         res = eval_datasets(worker_df, w_ref, sent_map, allow_overlaps=False)
 
         # Step 3: for each worker, get argument precision and recall, and avg. number of questions per verb.
-        arg_counts, role_counts, all_matchings = res
+        arg_counts, role_counts, isnom_counts, all_matchings = res
         tp, fp, fn = arg_counts
         prec = tp / (tp + fp)
         recall = tp / (tp + fn)

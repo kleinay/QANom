@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from annotations_evaluations.common import Question, Role, QUESTION_FIELDS, Argument
+from annotations_evaluations.common import read_csv, Response, Question, Role, QUESTION_FIELDS, Argument
 from annotations_evaluations.decode_encode_answers import NO_RANGE, decode_qasrl
 from annotations_evaluations.evaluate import evaluate, Metrics
 
@@ -45,14 +45,16 @@ def fill_answer(arg: Argument, tokens: List[str]):
 def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool):
     arg_counts = np.zeros(3, dtype=np.float32)
     role_counts = np.zeros(3, dtype=np.float32)
+    is_nom_counts = np.zeros(3, dtype=np.float32)
     all_matchings = []
-    for key, sys_roles, grt_roles in tqdm(yield_paired_predicates(sys_df, grt_df), leave=False):
+    for key, sys_response, grt_response in tqdm(yield_paired_predicates(sys_df, grt_df), leave=False):
         qasrl_id, verb_idx = key
         tokens = sent_map[qasrl_id]
-        local_arg_counts, local_role_counts, sys_to_grt = evaluate(sys_roles, grt_roles, allow_overlaps)
+        local_arg_counts, local_role_counts, local_is_nom_counts, sys_to_grt = evaluate(sys_response, grt_response, allow_overlaps)
         arg_counts += np.array(astuple(local_arg_counts))
         role_counts += np.array(astuple(local_role_counts))
-        all_args = build_all_arg_roles(sys_roles, grt_roles, sys_to_grt)
+        is_nom_counts += np.array(astuple(local_is_nom_counts))
+        all_args = build_all_arg_roles(sys_response.roles, grt_response.roles, sys_to_grt)
         all_args['qasrl_id'] = qasrl_id
         all_args['verb_idx'] = verb_idx
         all_args['grt_arg_text'] = all_args.grt_arg.apply(fill_answer, tokens=tokens)
@@ -66,44 +68,58 @@ def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool):
                                    'qasrl_id', 'verb_idx']]
     arg_metrics = Metrics(*arg_counts)
     role_metrics = Metrics(*role_counts)
+    is_nom_counts = Metrics(*is_nom_counts)
 
-    return arg_metrics, role_metrics, all_matchings
+    return arg_metrics, role_metrics, is_nom_counts, all_matchings
 
 
 def main(sentences_path: str, proposed_path: str, reference_path: str):
-    sent_df = pd.read_csv(sentences_path)
+    sent_df = read_csv(sentences_path)
     sent_map = dict(zip(sent_df.qasrl_id, sent_df.tokens.apply(str.split)))
 
-    sys_df = decode_qasrl(pd.read_csv(proposed_path))
-    grt_df = decode_qasrl(pd.read_csv(reference_path))
-    arg, role, _ = eval_datasets(sys_df, grt_df, sent_map, allow_overlaps=False)
+    sys_df = read_csv(proposed_path)
+    grt_df = read_csv(reference_path)
+    sys_df = decode_qasrl(sys_df)
+    grt_df = decode_qasrl(grt_df)
+    arg, role, isnom, _ = eval_datasets(sys_df, grt_df, sent_map, allow_overlaps=False)
 
     print("ARGUMENT: Prec/Recall ", arg.prec(), arg.recall(), arg.f1())
     print("ROLE: Prec/Recall ", role.prec(), role.recall(), role.f1())
-
+    print("NOM-IDENT: Prec/Recall ", isnom.prec(), isnom.recall(), isnom.f1())
+    return (arg, role, isnom)
 
 def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame):
     predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
     for idx, row in predicate_ids.iterrows():
-        sys_arg_roles = sys_df[filter_ids(sys_df, row)].copy()
-        grt_arg_roles = grt_df[filter_ids(grt_df, row)].copy()
-        sys_roles = list(yield_roles(sys_arg_roles))
-        grt_roles = list(yield_roles(grt_arg_roles))
-        yield (row.qasrl_id, row.verb_idx), sys_roles, grt_roles
+        sys_arg_rows = sys_df[filter_ids(sys_df, row)].copy()
+        grt_arg_rows = grt_df[filter_ids(grt_df, row)].copy()
+        sys_response = get_response(sys_arg_rows)
+        grt_response = get_response(grt_arg_rows)
+        yield (row.qasrl_id, row.verb_idx), sys_response, grt_response
 
 
 def question_from_row(row: pd.Series) -> Question:
     question_as_dict = {question_field: row[question_field]
                         for question_field in QUESTION_FIELDS}
-    question_as_dict['text'] = row.question
+    question_as_dict['text'] = row.question if not pd.isnull(row.question) else ""
     return Question(**question_as_dict)
+
+def get_response(predicate_df: pd.DataFrame) -> Response:
+    roles = list(yield_roles(predicate_df))
+    is_verbal = predicate_df['is_verbal'].iloc[0] if len(predicate_df)>0 else True
+    verb_form = predicate_df['verb_form'].iloc[0] if len(predicate_df)>0 else ""
+    return Response(is_verbal,
+                    verb_form,
+                    roles)
 
 
 def yield_roles(predicate_df: pd.DataFrame) -> Generator[Role, None, None]:
     for row_idx, role_row in predicate_df.iterrows():
         question = question_from_row(role_row)
         arguments: List[Argument] = role_row.answer_range
-        yield Role(question, tuple(arguments))
+        # for No-QA-Applicable, yield no role (empty list of roles)
+        if not question.isEmpty():
+            yield Role(question, tuple(arguments))
 
 
 if __name__ == "__main__":

@@ -17,8 +17,8 @@ from nltk.parse import CoreNLPParser
 
 import catvar as catvar_util
 import wordnet_util
-
 from verb_to_nom import SuffixBasedNominalizationCandidates as VTN
+
 vtn = VTN()
 
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
@@ -31,7 +31,8 @@ def get_sentences_from_csv(csv_fn):
     :param csv_fn: file name for the simple raw_data file (sentenceId, tokens, sentence)
     :return: dict {sentenceId : sentence}
     """
-    df = pd.read_csv(csv_fn)
+    from annotations_evaluations.common import read_csv
+    df = read_csv(csv_fn)
     possible_labels_for_sent_id = {'sentenceId', 'qasrl_id'}
     sent_id_label = list(possible_labels_for_sent_id & set(df.columns))[0]
     df = df.set_index(sent_id_label)

@@ -1,5 +1,14 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, List
+
+import pandas as pd
+
+
+def read_csv(file_path: str):
+    try:
+        return pd.read_csv(file_path)
+    except UnicodeDecodeError:
+        return pd.read_csv(file_path, encoding="Latin-1")
 
 Argument = Tuple[int, int]
 
@@ -20,6 +29,9 @@ class Question:
     def __str__(self):
         return self.text
 
+    def isEmpty(self) -> bool:
+        return self.text is ""
+
 
 @dataclass(frozen=True)
 class Role:
@@ -28,6 +40,13 @@ class Role:
 
     def text(self):
         return self.question.text
+
+
+@dataclass(frozen=True)
+class Response:
+    is_verbal: bool
+    verb_form: str
+    roles: List[Role] = None
 
 
 

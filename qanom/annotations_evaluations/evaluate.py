@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from itertools import combinations, product
 from typing import List, Dict
 
-from annotations_evaluations.common import Role, Argument
+from annotations_evaluations.common import Response, Role, Argument
 
 MATCH_IOU_THRESHOLD = 0.3
 
@@ -24,6 +24,16 @@ class Metrics:
     def f1(self):
         p, r = self.prec(), self.recall()
         return 2 * p * r / (p + r)
+
+    def errors(self) -> int:
+        return self.false_negative + self.false_positive
+
+    def accuracy(self, n_decisions: int) -> float:
+        return 1 - (self.errors()/float(n_decisions))
+
+    @classmethod
+    def empty(cls):
+        return Metrics(0,0,0)
 
 
 def iou(arg1: Argument, arg2: Argument):
@@ -85,22 +95,37 @@ def find_matches(sys_args: List[Argument], grt_args: List[Argument]) -> Dict[Arg
     return sys_to_grt
 
 
-def evaluate(sys_roles: List[Role],
-             grt_roles: List[Role],
+def evaluate(sys_response: Response,
+             grt_response: Response,
              allow_overlaps: bool):
     # TODO
     # if not allow_overlaps:
     #     sys_roles = ensure_no_overlaps(sys_roles)
-
+    sys_roles: List[Role] = sys_response.roles
+    grt_roles: List[Role] = grt_response.roles
     sys_args = [arg for role in sys_roles for arg in role.arguments]
     grt_args = [arg for role in grt_roles for arg in role.arguments]
     sys_to_grt = find_matches(sys_args, grt_args)
 
-    arg_metrics = eval_arguments(grt_roles, sys_roles, sys_to_grt)
-    role_metrics = eval_roles(grt_roles, sys_roles, sys_to_grt)
+    is_nom_metrics = simple_boolean_decision(sys_response.is_verbal, grt_response.is_verbal)
 
-    return arg_metrics, role_metrics, sys_to_grt
+    # todo decide on evaluation of roles where is_verbal mismatch - should the roles be included in the role_count metric?
+    # Currently excluding these mismatches from the arg & roles metrices
+    if is_nom_metrics.errors() == 0:
+        arg_metrics = eval_arguments(grt_roles, sys_roles, sys_to_grt)
+        role_metrics = eval_roles(grt_roles, sys_roles, sys_to_grt)
+    else:
+        arg_metrics = Metrics.empty()
+        role_metrics = Metrics.empty()
 
+    return arg_metrics, role_metrics, is_nom_metrics, sys_to_grt
+
+
+def simple_boolean_decision(sys_decision: bool, grt_decision: bool) -> Metrics:
+    tp = int(sys_decision and grt_decision)
+    fp = int(sys_decision and not grt_decision)
+    fn = int(not sys_decision and grt_decision)
+    return Metrics(tp,fp,fn)
 
 def count_arguments(roles: List[Role]):
     return sum(len(role.arguments) for role in roles)
