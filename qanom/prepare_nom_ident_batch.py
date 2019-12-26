@@ -45,7 +45,7 @@ def pos_tag(sentence):
     Apply CoreNLP POS-Tagger on sentences.
     CoreNLP is running on server, so use it to be compatible with the qasrl-crowdsourcing POS tagging
     :param sentence: unicode string
-    :return: { sentenceId : [ (token, POS) for each token in sentence ] }
+    :return: [ (token, POS) for each token in sentence ]
     """
     return list(pos_tagger.tag(nltk.word_tokenize(sentence)))
 
@@ -91,19 +91,37 @@ def get_candidate_nouns(sentence,
 def get_verb_forms_from_lexical_resources(nn,
                                           wordnet=True,
                                           catvar=True,
-                                          affixes_heuristic=False):
-    wordnet_verbs = wordnet_util.convert_pos(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB) \
+                                          affixes_heuristic=True,
+                                          filter_distant=False):
+    wordnet_verbs = wordnet_util.convert_pos_by_lemmas(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB) \
         if wordnet else []
+    # apply distant-verbs filtering on wordnet verbs
+    if filter_distant:
+        wordnet_verbs = list(filter(lambda v: filter_distant_verb_forms(v, nn), wordnet_verbs))
+
     catvar_verbs = catvar_util.catvariate(nn) if catvar else []
     affixes_heuristic_verbs = vtn.get_source_verbs(nn) if affixes_heuristic else []
     # sort by distance
-    vrbs = wordnet_verbs + catvar_verbs + affixes_heuristic_verbs
+    vrbs = catvar_verbs + wordnet_verbs + affixes_heuristic_verbs
     vrbs = [v for v, w in wordnet_util.results_by_edit_distance(nn, vrbs)]
     if vrbs:
         return vrbs, True
     else:
         return [nn], False
 
+def filter_distant_verb_forms(verb_form, noun):
+    """ Return False for a verb_form whose edit-distance from noun is too large
+    (indicating it's probably not morphologically related). """
+    edit_distance = wordnet_util.levenshteinDistance(verb_form, noun)
+    short_size, long_size = min(len(verb_form),len(noun)), max(len(verb_form),len(noun))
+    edit_distance_without_suffix = wordnet_util.levenshteinDistance(verb_form[:short_size], noun[:short_size])
+    avg_size = (len(verb_form)+len(noun))/2.0
+    num_chars_maybe_arbitrarily_identical = short_size/3
+    if edit_distance_without_suffix > short_size - num_chars_maybe_arbitrarily_identical:
+        print("filtered out: +'"+verb_form+"' (edit-distance: "+str(edit_distance)+") for the noun '"+noun+"'")
+        return False
+    else:
+        return True
 
 # for debug - see candidates
 def get_candidate_nouns_from_csv(csv_fn):

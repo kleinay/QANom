@@ -1,4 +1,4 @@
-import pattern.en as pattern
+import pattern3.en as pattern
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
 

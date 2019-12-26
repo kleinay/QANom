@@ -26,17 +26,17 @@ import sys
 
 import prepare_nom_ident_batch
 
+""" Define which resources should be used for filtering nouns as candidate nominalizations. """
+resources = {"wordnet": True,
+             "catvar": True,
+             "affixes_heuristic": True}
+
 if __name__ == "__main__":
     """ Read from command line arguments. """
     if len(sys.argv) < 3:
         raise Exception("Missing command line arguments: 2 required - sentence.csv (input) and prompts.json (output) ")
     # assume last two are the required arguments
     sentences_csv_fn, prompts_json_fn = sys.argv[-2:]
-
-    """ Define which resources should be used for filtering nouns as candidate nominalizations. """
-    resources = {"wordnet" : True,
-                 "catvar" : True,
-                 "affixes_heuristic": True}
 
     """
     Use prepare_nom_ident_batch script to get candidates information as list of dicts.
