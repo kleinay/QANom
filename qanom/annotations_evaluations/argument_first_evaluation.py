@@ -1,14 +1,12 @@
 from argparse import ArgumentParser
-from dataclasses import astuple
-from typing import List, Dict, Generator
+from typing import List, Dict, Tuple, Generator
 
-import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 from annotations_evaluations.common import read_csv, Response, Question, Role, QUESTION_FIELDS, Argument
 from annotations_evaluations.decode_encode_answers import NO_RANGE, decode_qasrl
-from annotations_evaluations.evaluate import evaluate, Metrics
+from annotations_evaluations.evaluate import evaluate, Metrics, BinaryClassificationMetrics
 
 
 def to_arg_roles(roles: List[Role]):
@@ -42,18 +40,23 @@ def fill_answer(arg: Argument, tokens: List[str]):
     return " ".join(tokens[arg[0]: arg[1]])
 
 
-def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool):
-    arg_counts = np.zeros(3, dtype=np.float32)
-    role_counts = np.zeros(3, dtype=np.float32)
-    is_nom_counts = np.zeros(3, dtype=np.float32)
+def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool) \
+        -> Tuple[Metrics, Metrics, BinaryClassificationMetrics, pd.DataFrame]:
+    if not sent_map:
+        annot_df = pd.merge(sys_df[['qasrl_id', 'sentence']], grt_df[['qasrl_id', 'sentence']])
+        import annotations_evaluations.evaluate_inter_annotator
+        sent_map = annotations_evaluations.evaluate_inter_annotator.get_sent_map(annot_df)
+    arg_metrics = Metrics.empty()
+    role_metrics = Metrics.empty()
+    is_nom_counts = BinaryClassificationMetrics.empty()
     all_matchings = []
     for key, sys_response, grt_response in tqdm(yield_paired_predicates(sys_df, grt_df), leave=False):
         qasrl_id, verb_idx = key
         tokens = sent_map[qasrl_id]
-        local_arg_counts, local_role_counts, local_is_nom_counts, sys_to_grt = evaluate(sys_response, grt_response, allow_overlaps)
-        arg_counts += np.array(astuple(local_arg_counts))
-        role_counts += np.array(astuple(local_role_counts))
-        is_nom_counts += np.array(astuple(local_is_nom_counts))
+        local_arg_metric, local_role_metric, local_is_nom_metric, sys_to_grt = evaluate(sys_response, grt_response, allow_overlaps)
+        arg_metrics += local_arg_metric
+        role_metrics += local_role_metric
+        is_nom_counts += local_is_nom_metric
         all_args = build_all_arg_roles(sys_response.roles, grt_response.roles, sys_to_grt)
         all_args['qasrl_id'] = qasrl_id
         all_args['verb_idx'] = verb_idx
@@ -61,14 +64,15 @@ def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool):
         all_args['sys_arg_text'] = all_args.sys_arg.apply(fill_answer, tokens=tokens)
         all_matchings.append(all_args)
 
-    all_matchings = pd.concat(all_matchings)
-    all_matchings = all_matchings[['grt_arg_text', 'sys_arg_text',
-                                   'grt_role', 'sys_role',
-                                   'grt_arg', 'sys_arg',
-                                   'qasrl_id', 'verb_idx']]
-    arg_metrics = Metrics(*arg_counts)
-    role_metrics = Metrics(*role_counts)
-    is_nom_counts = Metrics(*is_nom_counts)
+    # todo verify fix bug - when all_matching is empty, return empty DataFrame
+    if not all_matchings:
+        all_matchings = pd.DataFrame()
+    else:
+        all_matchings = pd.concat(all_matchings)
+        all_matchings = all_matchings[['grt_arg_text', 'sys_arg_text',
+                                       'grt_role', 'sys_role',
+                                       'grt_arg', 'sys_arg',
+                                       'qasrl_id', 'verb_idx']]
 
     return arg_metrics, role_metrics, is_nom_counts, all_matchings
 
@@ -88,8 +92,11 @@ def main(sentences_path: str, proposed_path: str, reference_path: str):
     print("NOM-IDENT: Prec/Recall ", isnom.prec(), isnom.recall(), isnom.f1())
     return (arg, role, isnom)
 
-def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame):
-    predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Generator[Tuple[Tuple[str,int],Response,Response], None, None]:
+    grt_predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    sys_predicate_ids = sys_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    # Include only those predicates which are both in grt and in sys
+    predicate_ids = pd.merge(grt_predicate_ids, sys_predicate_ids, how='inner')
     for idx, row in predicate_ids.iterrows():
         sys_arg_rows = sys_df[filter_ids(sys_df, row)].copy()
         grt_arg_rows = grt_df[filter_ids(grt_df, row)].copy()

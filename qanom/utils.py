@@ -1,8 +1,38 @@
+from collections import defaultdict
+from typing import Dict, List, Union, NoReturn
+
+import pandas as pd
+
+
+def concatCsvs(csv_fn_list: List[str], output_fn: str) -> NoReturn:
+    inp_dfs = [pd.read_csv(fn) for fn in csv_fn_list]
+    concatenated_df = pd.concat(inp_dfs)
+    concatenated_df.to_csv(output_fn)
+    print("output DataFrame shape: ", concatenated_df.shape)
+
+def asRelative(distribution : Union[List, Dict]):
+    # get a list\dict of numbers (a distribution), return the relative distribution (element/sum)
+    if 'values' in dir(distribution):
+        # a dict type
+        sm = float(sum(distribution.values()))
+        return {k: v / sm for k, v in distribution.items()}
+    else:
+        # a list type
+        sm = float(sum(distribution))
+        return [e / sm for e in distribution]
+
+def replaceKeys(orig_dict, oldKeys2NewKeys, inplace=True):
+    """ replace keys with new keys using oldKeys2NewKeys mapping. """
+    target_dict = orig_dict if inplace else {}
+    for oldKey, newKey in oldKeys2NewKeys.items():
+        target_dict[newKey] = orig_dict.get(oldKey)
+        if inplace: orig_dict.pop(oldKey)
+    return target_dict
+
 
 def dictOfLists(pairs):
     # return a { key : [values given to that key] } for the pair list.
     # e.g. dictOfLists( [(0, "r"), (4, "s"), (0, "e")])  will return {0: ["r", "e"], 4: ["s"]}
-    from collections import defaultdict
     r = defaultdict(list)
     for k, v in pairs:
         r[k].append(v)

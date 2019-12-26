@@ -1,14 +1,30 @@
 from dataclasses import dataclass
 from typing import Tuple, List
 
+import numpy as np
 import pandas as pd
 
 
-def read_csv(file_path: str):
+def normalize(lst):
+    a = np.array(lst)
+    return a / sum(a)
+
+
+def read_dir_of_csv(dir_path: str) -> pd.DataFrame:
+    """ Concatenate all csv files in directory into one DataFrame """
+    import os
+    dfs, sections = zip(*[(read_csv(os.path.join(dir_path, fn)), fn.rstrip(".csv"))
+                          for fn in os.listdir(dir_path) if fn.endswith(".csv")])
+    return pd.concat(dfs, ignore_index=True, keys=sections, sort=True)
+
+
+def read_csv(file_path: str) -> pd.DataFrame:
+    from annotations_evaluations.decode_encode_answers import decode_qasrl
     try:
-        return pd.read_csv(file_path)
+        df = pd.read_csv(file_path)
     except UnicodeDecodeError:
-        return pd.read_csv(file_path, encoding="Latin-1")
+        df = pd.read_csv(file_path, encoding="Latin-1")
+    return decode_qasrl(df)
 
 Argument = Tuple[int, int]
 
