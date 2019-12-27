@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 import pandas as pd
 
 from annotations_evaluations.argument_first_evaluation import eval_datasets
-from annotations_evaluations.common import read_csv
+from annotations_evaluations.common import read_annot_csv
 from annotations_evaluations.decode_encode_answers import decode_qasrl
 from annotations_evaluations.evaluate import Metrics, BinaryClassificationMetrics
 
@@ -53,7 +53,7 @@ def get_worker_statistics(annot_df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
             for worker in workers}
 
 def get_worker_statistics_from_file(anot_fn):
-    return get_worker_statistics(read_csv(anot_fn))
+    return get_worker_statistics(read_annot_csv(anot_fn))
 
 """ Analysis functions"""
 
@@ -179,14 +179,14 @@ def evaluate_generator_agreement(annot_df: pd.DataFrame):
 
 
 def main(annotation_path: str):
-    annot_df = read_csv(annotation_path)
+    annot_df = read_annot_csv(annotation_path)
     annot_df = decode_qasrl(annot_df)
     # original annotations, multiple generation tasks per predicate
     print(annot_df.worker_id.value_counts())
     evaluate_generator_agreement(annot_df)
 
 def main_iaa_per_worker(annotation_path: str):
-    annot_df = read_csv(annotation_path)
+    annot_df = read_annot_csv(annotation_path)
     annot_df = decode_qasrl(annot_df)
     print(annot_df.worker_id.value_counts())
     evaluate_per_worker_iaa(annot_df)

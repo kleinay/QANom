@@ -4,7 +4,7 @@ from typing import List, Dict, Tuple, Generator
 import pandas as pd
 from tqdm import tqdm
 
-from annotations_evaluations.common import read_csv, Response, Question, Role, QUESTION_FIELDS, Argument
+from annotations_evaluations.common import read_annot_csv, read_csv, Response, Question, Role, QUESTION_FIELDS, Argument
 from annotations_evaluations.decode_encode_answers import NO_RANGE, decode_qasrl
 from annotations_evaluations.evaluate import evaluate, Metrics, BinaryClassificationMetrics
 
@@ -81,8 +81,8 @@ def main(sentences_path: str, proposed_path: str, reference_path: str):
     sent_df = read_csv(sentences_path)
     sent_map = dict(zip(sent_df.qasrl_id, sent_df.tokens.apply(str.split)))
 
-    sys_df = read_csv(proposed_path)
-    grt_df = read_csv(reference_path)
+    sys_df = read_annot_csv(proposed_path)
+    grt_df = read_annot_csv(reference_path)
     sys_df = decode_qasrl(sys_df)
     grt_df = decode_qasrl(grt_df)
     arg, role, isnom, _ = eval_datasets(sys_df, grt_df, sent_map, allow_overlaps=False)

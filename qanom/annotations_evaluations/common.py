@@ -13,18 +13,24 @@ def normalize(lst):
 def read_dir_of_csv(dir_path: str) -> pd.DataFrame:
     """ Concatenate all csv files in directory into one DataFrame """
     import os
-    dfs, sections = zip(*[(read_csv(os.path.join(dir_path, fn)), fn.rstrip(".csv"))
+    dfs, sections = zip(*[(read_annot_csv(os.path.join(dir_path, fn)), fn.rstrip(".csv"))
                           for fn in os.listdir(dir_path) if fn.endswith(".csv")])
     return pd.concat(dfs, ignore_index=True, keys=sections, sort=True)
 
 
 def read_csv(file_path: str) -> pd.DataFrame:
-    from annotations_evaluations.decode_encode_answers import decode_qasrl
     try:
         df = pd.read_csv(file_path)
     except UnicodeDecodeError:
         df = pd.read_csv(file_path, encoding="Latin-1")
+    return df
+
+
+def read_annot_csv(file_path: str) -> pd.DataFrame:
+    from annotations_evaluations.decode_encode_answers import decode_qasrl
+    df = read_csv(file_path)
     return decode_qasrl(df)
+
 
 Argument = Tuple[int, int]
 
@@ -46,7 +52,7 @@ class Question:
         return self.text
 
     def isEmpty(self) -> bool:
-        return self.text is ""
+        return self.text == ""
 
 
 @dataclass(frozen=True)

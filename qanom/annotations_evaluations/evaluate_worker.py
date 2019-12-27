@@ -4,8 +4,7 @@ from argparse import ArgumentParser
 import pandas as pd
 
 from annotations_evaluations.argument_first_evaluation import eval_datasets
-from annotations_evaluations.common import read_csv
-from annotations_evaluations.decode_encode_answers import decode_qasrl
+from annotations_evaluations.common import read_annot_csv, read_csv
 
 
 def parse_args():
@@ -22,8 +21,8 @@ def main():
     qasrl_path = args.qasrl_path
     out_dir = args.out_dir
 
-    qasrl = decode_qasrl(read_csv(qasrl_path))
-    ref = decode_qasrl(read_csv(args.ref_path))
+    qasrl = read_annot_csv(qasrl_path)
+    ref = read_annot_csv(args.ref_path)
     sents = read_csv(args.sent_path)
     sent_map = dict(zip(sents.qasrl_id, sents.tokens.apply(str.split)))
 

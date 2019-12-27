@@ -141,7 +141,10 @@ def get_candidate_nouns_from_raw_csv(csv_fn, **resources):
     sentences = get_sentences_from_csv(csv_fn)
     all_candidates = []
     for sid, sentence in sentences.items():
-        tokenized_sent = nltk.word_tokenize(sentence)
+        tokenized_sent = sentence.split(" ")
+        # verify nltk tokenizer agrees with split-by-space
+        tokenized_sent_nltk = nltk.word_tokenize(sentence)
+        assert tokenized_sent==tokenized_sent_nltk, "nltk tokenizer different from space tokenizer in sentence " + sentence
         for idx, nn in get_candidate_nouns(sentence, **resources):
             verb_forms, is_had_verbs = get_verb_forms_from_lexical_resources(nn, **resources)
             candidate_info = {"context": sentence,
