@@ -1,20 +1,23 @@
 """
 A script with a set of post-processing utilities for the collected annotation files (CSVs).
 """
+import json
 from typing import NoReturn
 
-import json
 import pandas as pd
 
-from qanom import prepare_nom_ident_batch, prepare_qanom_prompts
+from qanom import prepare_qanom_prompts
 
 
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     """
     Verify that all the HITs of the annotated data are valid according to the latest version of
-    prepare_nom_ident_batch.py, where I have found and corrected errors about:
+    prepare_qanom_prompts.py, where I have found and corrected errors about:
         * Wordnet edit-distance threshold
         * Wordnet verbalize() algorithm - using lemmas instead of synsets (large impact!)
+        * Tokenization issues - pos_tagger imposes different tokenization from sentence.split() or nltk.tokenize;
+            in final version I'm using stanford-core-nlp pos_tagger to tokenize.
+
     The function mark all rows with an (currently) invalid prompt (i.e. wrong verb_form for the target noun).
     One should leverage the returned CSV to generate a new JSON for re-annotating the invalid prompts with
     the corrected ones. Use
@@ -22,14 +25,14 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     :return: a DataFrame adding to annot_df:
         * an "invalid_prompt" column (boolean) - True if prompt changed (requires re-annotation or removal).
         * a "corrected_verb_form" column (string) indicating the up-to-date suggested verb_form returned by
-        prepare_nom_ident_batch.py. Notice that if it's an empty string, it means that for the current algorithm,
+        prepare_qanom_prompts.py. Notice that if it's an empty string, it means that for the current algorithm,
         no verb_form is available for this noun, meaning that we should delete the current annotation row but we should
         not re-annotate this target noun.
     """
     def annot_row_to_corrected_verb_form(row: pd.Series) -> str:
         noun = row.verb
         uptodate_verb_forms, is_had_uptodate_verbs = \
-            prepare_nom_ident_batch.get_verb_forms_from_lexical_resources(noun, **prepare_qanom_prompts.resources)
+            prepare_qanom_prompts.get_verb_forms_from_lexical_resources(noun, **prepare_qanom_prompts.resources)
         # return empty string for non-verbal nouns (nouns with no verb_forms)
         if not is_had_uptodate_verbs:
             return ""
