@@ -57,17 +57,6 @@ def get_worker_statistics_from_file(anot_fn):
 
 """ Analysis functions"""
 
-def most_controversial_predicates(annot_df: pd.DataFrame):
-    from scipy import stats
-    from qanom.annotations_evaluations.common import normalize
-    sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
-    cols = ['qasrl_id', 'verb_idx', 'verb']
-    entropies = annot_df.groupby(cols).is_verbal.agg(lambda s: stats.entropy(normalize(s.value_counts()), base=2))
-    print(entropies.sort_values(ascending=False))
-
-    #todo compete it- compress to is_verbal decision per se, and see number of annotators
-
-
 
 def describe_worker_work(annot_df: pd.DataFrame):
     cols = ['qasrl_id', 'verb_idx']
@@ -142,7 +131,8 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
                                                      "is-verbal accuracy": worker_isnom_performance[worker_id].accuracy()})
     return worker_general_statistics
 
-def evaluate_generator_agreement(annot_df: pd.DataFrame):
+
+def evaluate_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
     cols = ['qasrl_id', 'verb_idx']
     sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
     n_gen = annot_df.groupby(cols).worker_id.transform(pd.Series.nunique)
@@ -150,9 +140,10 @@ def evaluate_generator_agreement(annot_df: pd.DataFrame):
     n_workers = len(workers)
     annot_df = annot_df.copy()
     n_predicates = annot_df[cols].drop_duplicates().shape[0]
-    print("n_workers: ", n_workers)
-    print("n_predicates: ", n_predicates)
-    print(f"metric\tworker_1\tworker_2\tprec\trecall\tf1")
+    if verbose:
+        print("n_workers: ", n_workers)
+        print("n_predicates: ", n_predicates)
+        print(f"metric\tworker_1\tworker_2\tprec\trecall\tf1")
 
     total_arg_metric = Metrics.empty()
     total_role_metric = Metrics.empty()
@@ -160,13 +151,14 @@ def evaluate_generator_agreement(annot_df: pd.DataFrame):
     for w1, w2 in combinations(workers, r=2):
         w1_df = annot_df[annot_df.worker_id == w1].copy()
         w2_df = annot_df[annot_df.worker_id == w2].copy()
-        print(f"\nComparing  {w1}   to   {w2}:   [p,r,f1]")
         arg_metrics, role_metrics, nom_ident_metrics, _ = eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
-        print(f"Number of shared predicates: {get_n_predicates(pd.merge(w1_df, w2_df, on=cols))}")
-        print(f"ARG:\t{arg_metrics.prec():.3f}\t{arg_metrics.recall():.3f}\t{arg_metrics.f1():.3f}")
-        print(f"ROLE:\t{role_metrics.prec():.3f}\t{role_metrics.recall():.3f}\t{role_metrics.f1():.3f}")
-        print(f"NOM_IDENT:\t{w1}\t{w2}\t{nom_ident_metrics.prec():.3f}\t{nom_ident_metrics.recall():.3f}\t{nom_ident_metrics.f1():.3f}")
-        print(f"NOM_IDENT accuracy: {nom_ident_metrics.accuracy():.3f}, {int(nom_ident_metrics.errors())} mismathces out of {nom_ident_metrics.instances()} predicates.")
+        if verbose:
+            print(f"\nComparing  {w1}   to   {w2}:   [p,r,f1]")
+            print(f"Number of shared predicates: {get_n_predicates(pd.merge(w1_df, w2_df, on=cols))}")
+            print(f"ARG:\t{arg_metrics.prec():.3f}\t{arg_metrics.recall():.3f}\t{arg_metrics.f1():.3f}")
+            print(f"ROLE:\t{role_metrics.prec():.3f}\t{role_metrics.recall():.3f}\t{role_metrics.f1():.3f}")
+            print(f"NOM_IDENT:\t{w1}\t{w2}\t{nom_ident_metrics.prec():.3f}\t{nom_ident_metrics.recall():.3f}\t{nom_ident_metrics.f1():.3f}")
+            print(f"NOM_IDENT accuracy: {nom_ident_metrics.accuracy():.3f}, {int(nom_ident_metrics.errors())} mismathces out of {nom_ident_metrics.instances()} predicates.")
         total_arg_metric += arg_metrics
         total_role_metric += role_metrics
         total_nomIdent_metric += nom_ident_metrics
@@ -183,7 +175,7 @@ def main(annotation_path: str):
     annot_df = decode_qasrl(annot_df)
     # original annotations, multiple generation tasks per predicate
     print(annot_df.worker_id.value_counts())
-    evaluate_generator_agreement(annot_df)
+    evaluate_generator_agreement(annot_df, verbose=True)
 
 def main_iaa_per_worker(annotation_path: str):
     annot_df = read_annot_csv(annotation_path)

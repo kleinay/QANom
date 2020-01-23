@@ -21,7 +21,13 @@ Logic building blocks:
 """
 
 import json
+import os
 import sys
+
+# add project basic directory to sys.path, in order to refer qanom as a package from anywhere
+project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(project_dir)
+
 from typing import *
 
 from nltk.parse import CoreNLPParser

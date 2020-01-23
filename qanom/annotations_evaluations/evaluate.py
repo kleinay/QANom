@@ -4,7 +4,7 @@ from typing import List, Dict
 
 import numpy as np
 
-from annotations_evaluations.common import Response, Role, Argument
+from annotations_evaluations.decode_encode_answers import Argument, Role, Response
 
 MATCH_IOU_THRESHOLD = 0.3
 
@@ -214,9 +214,7 @@ def evaluate(sys_response: Response,
     #     sys_roles = ensure_no_overlaps(sys_roles)
     sys_roles: List[Role] = sys_response.roles
     grt_roles: List[Role] = grt_response.roles
-    sys_args = [arg for role in sys_roles for arg in role.arguments]
-    grt_args = [arg for role in grt_roles for arg in role.arguments]
-    sys_to_grt = find_matches(sys_args, grt_args)
+    sys_to_grt = find_matches(sys_response.all_args(), grt_response.all_args())
 
     is_nom_metrics = BinaryClassificationMetrics.simple_boolean_decision(sys_response.is_verbal, grt_response.is_verbal)
 

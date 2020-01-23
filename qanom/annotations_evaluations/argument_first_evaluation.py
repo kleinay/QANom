@@ -4,8 +4,9 @@ from typing import List, Dict, Tuple, Generator
 import pandas as pd
 from tqdm import tqdm
 
-from annotations_evaluations.common import read_annot_csv, read_csv, Response, Question, Role, QUESTION_FIELDS, Argument
-from annotations_evaluations.decode_encode_answers import NO_RANGE, decode_qasrl
+from annotations_evaluations.common import read_annot_csv, read_csv
+from annotations_evaluations.decode_encode_answers import NO_RANGE, decode_qasrl, Argument, Role, Response, \
+    decode_response
 from annotations_evaluations.evaluate import evaluate, Metrics, BinaryClassificationMetrics
 
 
@@ -100,33 +101,9 @@ def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Gener
     for idx, row in predicate_ids.iterrows():
         sys_arg_rows = sys_df[filter_ids(sys_df, row)].copy()
         grt_arg_rows = grt_df[filter_ids(grt_df, row)].copy()
-        sys_response = get_response(sys_arg_rows)
-        grt_response = get_response(grt_arg_rows)
+        sys_response = decode_response(sys_arg_rows)
+        grt_response = decode_response(grt_arg_rows)
         yield (row.qasrl_id, row.verb_idx), sys_response, grt_response
-
-
-def question_from_row(row: pd.Series) -> Question:
-    question_as_dict = {question_field: row[question_field]
-                        for question_field in QUESTION_FIELDS}
-    question_as_dict['text'] = row.question if not pd.isnull(row.question) else ""
-    return Question(**question_as_dict)
-
-def get_response(predicate_df: pd.DataFrame) -> Response:
-    roles = list(yield_roles(predicate_df))
-    is_verbal = predicate_df['is_verbal'].iloc[0] if len(predicate_df)>0 else True
-    verb_form = predicate_df['verb_form'].iloc[0] if len(predicate_df)>0 else ""
-    return Response(is_verbal,
-                    verb_form,
-                    roles)
-
-
-def yield_roles(predicate_df: pd.DataFrame) -> Generator[Role, None, None]:
-    for row_idx, role_row in predicate_df.iterrows():
-        question = question_from_row(role_row)
-        arguments: List[Argument] = role_row.answer_range
-        # for No-QA-Applicable, yield no role (empty list of roles)
-        if not question.isEmpty():
-            yield Role(question, tuple(arguments))
 
 
 if __name__ == "__main__":
