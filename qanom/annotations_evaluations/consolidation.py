@@ -3,10 +3,11 @@
 from typing import *
 
 import annotations_evaluations.decode_encode_answers
+import utils
+from annotations_evaluations.common import *
 from annotations_evaluations.decode_encode_answers \
     import Argument, Role, Response, encode_response, arg_length
 from annotations_evaluations.evaluate import iou
-from qanom.annotations_evaluations.common import *
 
 FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'worker_id',
        'assign_id', 'is_verbal', 'verb_form', 'question',
@@ -23,7 +24,7 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
         for answers: take larger set of answers;
             if even - take longer (and select the question corresponding to selected answers).
     :param df: generation annotation DataFrame containing multiple workers' annotation per predicate
-    :return:
+    :return: annotation csv (encoded, not decoded) of the consolidated annotations
     """
     from annotations_evaluations.decode_encode_answers import SPAN_SEPARATOR
     data_columns = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'verb_form']
@@ -52,35 +53,30 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def auto_consolidate_predicate(responses: List[Response]) -> Response:
-    verb_form = responses[0].verb_form
-    conjuncted_is_verbal = all(map(lambda r: r.is_verbal, responses))
-    if not conjuncted_is_verbal:
-        return Response(conjuncted_is_verbal, verb_form)
-
-    # assuming Iterable of 2 responses
-    resp1, resp2 = responses[:2]
-    from annotations_evaluations.evaluate import find_matches
-    alignment : Dict[Argument, Argument] = find_matches(resp1.all_args(), resp2.all_args())
+def get_aligned_roles(resp1: Response, resp2: Response) -> List[Role]:
     # take only aligned arguments along with their full Role (=QA)
-    intersecting_roles : List[Role] = []
+    from annotations_evaluations.evaluate import find_matches
+    alignment: Dict[Argument, Argument] = find_matches(resp1.all_args(), resp2.all_args())
+
     # Helper func:
     def orig_role(arg: Argument, response: Response) -> Role:
         """ get original role (question & argument-set) of arg. """
         roles_containing_arg = list(filter(lambda r: arg in r.arguments, response.roles))
-        # shouldn't ever happen
-        assert len(roles_containing_arg)==1, f"More or less than one role contains this arg: {arg}, roles: {roles_containing_arg}"
+        # shouldn't ever happen due to UI restriction on overlapping arguments
+        assert len(
+            roles_containing_arg) == 1, f"More or less than one role contains this arg: {arg}, roles: {roles_containing_arg}"
         return roles_containing_arg[0]
 
     def is_conflicting(role: Role, pre_selected_roles: Set[Role]) -> bool:
         """ Return True if any of role.arguments if conflicting (overlapping) with the pre-selected arguments. """
-        overlapping = lambda a1,a2: iou(a1,a2)>0
+        overlapping = lambda a1, a2: iou(a1, a2) > 0
         return any(overlapping(arg, pre_arg)
                    for arg in role.arguments
                    for pre_role in pre_selected_roles
                    for pre_arg in pre_role.arguments)
 
-    selected_roles : Set[Role] = set()
+    selected_roles: Set[Role] = set()
+
     def get_better_role(role1: Role, role2: Role) -> Union[Role, None]:
         """ Choose which role to select for consolidated response (from two aligned roles) """
         # Criteria 0: role doesn't conflict with roles we have previosuly selected
@@ -110,4 +106,63 @@ def auto_consolidate_predicate(responses: List[Response]) -> Response:
         new_role = get_better_role(role1, role2)
         if new_role:
             selected_roles.add(new_role)
-    return Response(conjuncted_is_verbal, verb_form, list(selected_roles))
+    return list(selected_roles)
+
+
+def auto_consolidate_predicate(responses: List[Response], method: str = "intersection") -> Response:
+    """
+    :param responses:
+    :param method: "intersection" | "majority"
+    :return:
+    """
+    assert method in ["intersection", "majority"], "'method' must be 'intersection' or 'majority'!"
+    if len(responses) == 1:
+        return responses[0]
+    assert len(responses) > 1, "Got 0 responses to consolidate"
+
+    verb_form = responses[0].verb_form
+    is_verbal_decisions = list(map(lambda r: r.is_verbal, responses))
+    majority_is_verbal = utils.majority(is_verbal_decisions, whenTie=False)
+    has_no_roles = list(map(lambda r: not bool(r.roles), responses))
+    # in case no generator produced QAs for this predicate
+    if all(has_no_roles):
+        return Response(majority_is_verbal, verb_form)
+
+    if len(responses) > 2:
+        if method=="intersection":
+            # recursive solution - taking only intersection roles
+            cons_response1 = auto_consolidate_predicate(responses[:2])
+            cons_response2 = auto_consolidate_predicate(responses[2:])
+            return auto_consolidate_predicate([cons_response1, cons_response2], method)
+        elif method=="majority":
+            # todo
+            raise NotImplementedError
+
+    # assuming Iterable of 2 responses
+    elif len(responses) == 2:
+        selected_roles = get_aligned_roles(*responses[:2])
+        return Response(majority_is_verbal, verb_form, selected_roles)
+
+
+def auto_consolidation_iaa_experiment(dup_annot_df: pd.DataFrame) -> float:
+    # returns argument F1 agreement
+    import qanom.annotations_evaluations.evaluate_inter_annotator as eia
+    desired_workers = ['A1FS8SBR4SDWYG', 'A21LONLNBOB8Q', 'A2A4UAFZ5LW71K', 'AJQGWGESKQT4Y']
+    only4w = dup_annot_df[dup_annot_df.worker_id.isin(desired_workers)]
+    df = only4w
+    df['n_workers'] = df.groupby('key').worker_id.transform(pd.Series.nunique)
+    only4w = df[df.n_workers == 4]
+    print(f"number of predicates with full annotation of same 4 workers: {eia.get_n_predicates(only4w)}")
+
+    grp1, grp2 = ['A1FS8SBR4SDWYG', 'AJQGWGESKQT4Y'], ['A21LONLNBOB8Q', 'A2A4UAFZ5LW71K']
+    r2grp = lambda r: "grp1" if r.worker_id in grp1 else "grp2"
+    only4w['group'] = only4w.apply(r2grp, axis=1)
+    grp2df = dict(list(only4w.groupby('group')))
+    # generate consolidated df (automatic) for each group
+    cons1_df = auto_consolidate_gen_annot_df(grp2df["grp1"])
+    cons2_df = auto_consolidate_gen_annot_df(grp2df["grp2"])
+    meta_df = pd.concat([cons1_df, cons2_df], ignore_index=True, sort=False)
+    import annotations_evaluations.decode_encode_answers as decode_encode
+    meta_decoded_df = decode_encode.decode_qasrl(meta_df)
+    # print IAA
+    return eia.evaluate_generator_agreement(meta_decoded_df)

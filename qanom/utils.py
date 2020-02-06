@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, List, Union, NoReturn
+from typing import Dict, List, Iterable, Union, NoReturn
 
 import pandas as pd
 
@@ -37,6 +37,15 @@ def dictOfLists(pairs):
     for k, v in pairs:
         r[k].append(v)
     return dict(r)
+
+
+def majority(lst: Iterable[bool], whenTie=True) -> bool:
+    lst = list(lst)
+    s = sum(lst)
+    if s == len(lst)/2.0:
+        return whenTie
+    else:
+        return s > len(lst)/2.0
 
 
 def static_variables(**kwargs):

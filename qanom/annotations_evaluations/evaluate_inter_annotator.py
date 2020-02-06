@@ -167,7 +167,7 @@ def evaluate_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
     print(f"arg-f1 : {total_arg_metric.f1():.4f}")
     print(f"role-f1 : {total_role_metric.f1():.4f}")
     print(f"is-verbal-accuracy: {total_nomIdent_metric.accuracy():.4f}    for {total_nomIdent_metric.instances()} pairwise comparisons.")
-
+    return total_arg_metric.f1()
 
 
 def main(annotation_path: str):

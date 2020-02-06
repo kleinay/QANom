@@ -64,13 +64,13 @@ def reannotate_corrected_verb_forms(annot_df: pd.DataFrame, output_json_fn) -> N
     json.dump(candidates, open(output_json_fn, "w"))
 
 
-def replace_some_annotations(orig_big_df: pd.DataFrame, corrected_annot_df: pd.DataFrame) -> pd.DataFrame:
-    """  Return orig_big_df after replacing the predicates that are in corrected_annot_df with their
+def replace_some_annotations(orig_df: pd.DataFrame, corrected_annot_df: pd.DataFrame) -> pd.DataFrame:
+    """  Return orig_df after replacing the predicates that are in corrected_annot_df with their
          corrected annotation. """
     # replace intersection of predicates
-    predicates_to_replace = set(corrected_annot_df.key.drop_duplicates()) & set(orig_big_df.key.drop_duplicates())
+    predicates_to_replace = set(corrected_annot_df.key.drop_duplicates()) & set(orig_df.key.drop_duplicates())
     # remove them from (a copy of) orig
-    final_df = orig_big_df[~orig_big_df.key.isin(predicates_to_replace)].copy()
+    final_df = orig_df[~orig_df.key.isin(predicates_to_replace)].copy()
     # now merge with the annotations of these predicates in corrected_annot_df
     relevant_corrected_df = corrected_annot_df[corrected_annot_df.key.isin(predicates_to_replace)].copy()
     final_df = pd.concat([final_df, relevant_corrected_df], sort=False)
@@ -83,7 +83,23 @@ def fix_annot_with_corrected(orig_annot_fn: str, corrected_annot_fn: str,
     orig_df = read_annot_csv(orig_annot_fn)
     all_corrected_df = read_annot_csv(corrected_annot_fn)
     corrected_df = replace_some_annotations(orig_df, all_corrected_df)
+    # in addition to re-annotation correction, filter out currently invalid prompts for data
+    corrected_df = find_invalid_prompts(corrected_df)
+    corrected_and_filtered_df = corrected_df[~corrected_df.invalid_prompt]
+    final_df = corrected_and_filtered_df.drop(["corrected_verb_form", "invalid_prompt"], axis=1)
     # now export to file with same naming as orig (but in destination folder)
     orig_dir, orig_name = os.path.split(orig_annot_fn)
     dest_fn = os.path.join(dest_dir, orig_name)
-    save_annot_csv(corrected_df, dest_fn)
+    save_annot_csv(final_df, dest_fn)
+
+
+def generate_corrected_annotation_files():
+    """
+    Fixing original annotations with new verb-form algorithm and the resulting output of the re-annotation batch.
+    """
+    orig_dir_path = "files/annotations/production"
+    cor_path = "files/annotations/production/corrected"
+    reannot_fn = "files/annotations/reannot.csv"
+    ann_files = [os.path.join(orig_dir_path, fn) for fn in os.listdir(orig_dir_path) if fn.endswith(".csv")]
+    for orig_fn in ann_files:
+        fix_annot_with_corrected(orig_fn, reannot_fn, cor_path)
