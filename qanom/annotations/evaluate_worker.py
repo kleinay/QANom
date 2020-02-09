@@ -3,8 +3,8 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
-from annotations_evaluations.argument_first_evaluation import eval_datasets
-from annotations_evaluations.common import read_annot_csv, read_csv
+from annotations.argument_first_evaluation import eval_datasets
+from annotations.common import read_annot_csv, read_csv
 
 
 def parse_args():

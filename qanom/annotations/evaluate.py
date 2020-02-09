@@ -4,7 +4,7 @@ from typing import List, Dict
 
 import numpy as np
 
-from annotations_evaluations.decode_encode_answers import Argument, Role, Response
+from annotations.decode_encode_answers import Argument, Role, Response
 
 MATCH_IOU_THRESHOLD = 0.3
 

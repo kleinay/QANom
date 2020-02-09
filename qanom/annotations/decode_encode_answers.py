@@ -3,6 +3,8 @@ from typing import List, Iterable, Tuple, Generator
 
 import pandas as pd
 
+from annotations import common
+
 SPAN_SEPARATOR = "~!~"
 NO_RANGE = ""
 INVALID = "INVALID"
@@ -140,9 +142,7 @@ def decode_qasrl(qasrl_df: pd.DataFrame) -> pd.DataFrame:
         if c in qasrl_df:
             qasrl_df[c].fillna("", inplace=True)
 
-    # add 'key' column (predicate unique identifier)
-    if 'key' not in qasrl_df.columns:
-        qasrl_df['key'] = qasrl_df.apply(lambda r: r['qasrl_id']+"_"+str(r['verb_idx']), axis=1)
+    common.set_key_column(qasrl_df)
     return qasrl_df
 
 

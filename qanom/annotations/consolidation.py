@@ -2,12 +2,12 @@
  (typically two) into a final, non-redundant annotation. """
 from typing import *
 
-import annotations_evaluations.decode_encode_answers
+import annotations.decode_encode_answers
 import utils
-from annotations_evaluations.common import *
-from annotations_evaluations.decode_encode_answers \
+from annotations.common import *
+from annotations.decode_encode_answers \
     import Argument, Role, Response, encode_response, arg_length
-from annotations_evaluations.evaluate import iou
+from annotations.evaluate import iou
 
 FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'worker_id',
        'assign_id', 'is_verbal', 'verb_form', 'question',
@@ -26,14 +26,14 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
     :param df: generation annotation DataFrame containing multiple workers' annotation per predicate
     :return: annotation csv (encoded, not decoded) of the consolidated annotations
     """
-    from annotations_evaluations.decode_encode_answers import SPAN_SEPARATOR
+    from annotations.decode_encode_answers import SPAN_SEPARATOR
     data_columns = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'verb_form']
     to_be_conjoined_columns = ['worker_id', 'assign_id']
     """ Rest of columns are annotation-columns - they are to be decoded from consolidated Response.
         (Except from 'answer' which requires both answer_range from Response and sentence.) """
     pred_dfs: List[pd.DataFrame] = []
     for key, pred_df in df.groupby('key'):
-        responses = {worker: annotations_evaluations.decode_encode_answers.decode_response(worker_df)
+        responses = {worker: annotations.decode_encode_answers.decode_response(worker_df)
                      for worker, worker_df in pred_df.groupby('worker_id')}
         if len(responses)<2:
             # only one generator for predicate
@@ -55,7 +55,7 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_aligned_roles(resp1: Response, resp2: Response) -> List[Role]:
     # take only aligned arguments along with their full Role (=QA)
-    from annotations_evaluations.evaluate import find_matches
+    from annotations.evaluate import find_matches
     alignment: Dict[Argument, Argument] = find_matches(resp1.all_args(), resp2.all_args())
 
     # Helper func:
@@ -146,7 +146,7 @@ def auto_consolidate_predicate(responses: List[Response], method: str = "interse
 
 def auto_consolidation_iaa_experiment(dup_annot_df: pd.DataFrame) -> float:
     # returns argument F1 agreement
-    import qanom.annotations_evaluations.evaluate_inter_annotator as eia
+    import qanom.annotations.evaluate_inter_annotator as eia
     desired_workers = ['A1FS8SBR4SDWYG', 'A21LONLNBOB8Q', 'A2A4UAFZ5LW71K', 'AJQGWGESKQT4Y']
     only4w = dup_annot_df[dup_annot_df.worker_id.isin(desired_workers)]
     df = only4w
@@ -162,7 +162,7 @@ def auto_consolidation_iaa_experiment(dup_annot_df: pd.DataFrame) -> float:
     cons1_df = auto_consolidate_gen_annot_df(grp2df["grp1"])
     cons2_df = auto_consolidate_gen_annot_df(grp2df["grp2"])
     meta_df = pd.concat([cons1_df, cons2_df], ignore_index=True, sort=False)
-    import annotations_evaluations.decode_encode_answers as decode_encode
+    import annotations.decode_encode_answers as decode_encode
     meta_decoded_df = decode_encode.decode_qasrl(meta_df)
     # print IAA
     return eia.evaluate_generator_agreement(meta_decoded_df)

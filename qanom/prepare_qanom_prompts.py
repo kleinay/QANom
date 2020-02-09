@@ -34,7 +34,7 @@ from nltk.parse import CoreNLPParser
 
 from qanom import catvar as catvar_util
 from qanom import wordnet_util
-from qanom.annotations_evaluations.common import read_csv
+from qanom.annotations.common import read_csv
 from qanom.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
 
 """ Define which resources should be used (by default) for filtering nouns as candidate nominalizations. """

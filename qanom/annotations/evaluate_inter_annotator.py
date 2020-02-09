@@ -5,10 +5,10 @@ from typing import List, Dict, Any
 
 import pandas as pd
 
-from annotations_evaluations.argument_first_evaluation import eval_datasets
-from annotations_evaluations.common import read_annot_csv
-from annotations_evaluations.decode_encode_answers import decode_qasrl
-from annotations_evaluations.evaluate import Metrics, BinaryClassificationMetrics
+from annotations.argument_first_evaluation import eval_datasets
+from annotations.common import read_annot_csv, set_key_column
+from annotations.decode_encode_answers import decode_qasrl
+from annotations.evaluate import Metrics, BinaryClassificationMetrics
 
 """ Helper funcs for important information within an annotation DataFrame """
 def get_sent_map(annot_df: pd.DataFrame) -> Dict[str, List[str]]:
@@ -40,10 +40,8 @@ def get_n_positive_predicates(worker_df: pd.DataFrame) -> int:
 
 # describe statistics of the saved annotated data
 def get_worker_statistics(annot_df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
-    df = annot_df
-    if 'key' not in df.columns:
-        df['key'] = df.apply(lambda r: r['qasrl_id']+"_"+str(r['verb_idx']), axis=1)
-    by_worker = df.groupby("worker_id")
+    set_key_column(annot_df)
+    by_worker = annot_df.groupby("worker_id")
     num_of_predicates = by_worker.key.nunique()
     num_of_qas = by_worker.question.count() # counts only non-NA values
     workers = list(num_of_predicates.index)

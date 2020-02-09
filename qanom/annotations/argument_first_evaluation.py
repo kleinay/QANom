@@ -4,10 +4,10 @@ from typing import List, Dict, Tuple, Generator
 import pandas as pd
 from tqdm import tqdm
 
-from annotations_evaluations.common import read_annot_csv, read_csv
-from annotations_evaluations.decode_encode_answers import NO_RANGE, decode_qasrl, Argument, Role, Response, \
+from annotations.common import read_annot_csv, read_csv
+from annotations.decode_encode_answers import NO_RANGE, decode_qasrl, Argument, Role, Response, \
     decode_response
-from annotations_evaluations.evaluate import evaluate, Metrics, BinaryClassificationMetrics
+from annotations.evaluate import evaluate, Metrics, BinaryClassificationMetrics
 
 
 def to_arg_roles(roles: List[Role]):
@@ -45,8 +45,8 @@ def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool) \
         -> Tuple[Metrics, Metrics, BinaryClassificationMetrics, pd.DataFrame]:
     if not sent_map:
         annot_df = pd.merge(sys_df[['qasrl_id', 'sentence']], grt_df[['qasrl_id', 'sentence']])
-        import annotations_evaluations.evaluate_inter_annotator
-        sent_map = annotations_evaluations.evaluate_inter_annotator.get_sent_map(annot_df)
+        import annotations.evaluate_inter_annotator
+        sent_map = annotations.evaluate_inter_annotator.get_sent_map(annot_df)
     arg_metrics = Metrics.empty()
     role_metrics = Metrics.empty()
     is_nom_counts = BinaryClassificationMetrics.empty()
