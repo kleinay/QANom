@@ -7,8 +7,6 @@ from typing import *
 
 import pandas as pd
 
-from qanom import prepare_qanom_prompts
-
 
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     """
@@ -31,6 +29,7 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
         not re-annotate this target noun.
     """
     def annot_row_to_corrected_verb_form(row: pd.Series) -> str:
+        from qanom import prepare_qanom_prompts
         noun = row.verb
         uptodate_verb_forms, is_had_uptodate_verbs = \
             prepare_qanom_prompts.get_verb_forms_from_lexical_resources(noun, **prepare_qanom_prompts.resources)
@@ -79,7 +78,7 @@ def replace_some_annotations(orig_df: pd.DataFrame, corrected_annot_df: pd.DataF
 
 def fix_annot_with_corrected(orig_annot_fn: str, corrected_annot_fn: str,
                              dest_dir: str = "files/annotations/production/corrected") -> NoReturn:
-    from annotations_evaluations.common import read_annot_csv, save_annot_csv
+    from annotations.common import read_annot_csv, save_annot_csv
     orig_df = read_annot_csv(orig_annot_fn)
     all_corrected_df = read_annot_csv(corrected_annot_fn)
     corrected_df = replace_some_annotations(orig_df, all_corrected_df)
@@ -103,3 +102,88 @@ def generate_corrected_annotation_files():
     ann_files = [os.path.join(orig_dir_path, fn) for fn in os.listdir(orig_dir_path) if fn.endswith(".csv")]
     for orig_fn in ann_files:
         fix_annot_with_corrected(orig_fn, reannot_fn, cor_path)
+
+"""
+Functions for filtering Non-Morpholigically-Related verb_forms (based on NMR feedbacks from workers)
+Note: the methods that fix the annotations use the file files/nmr_case.csv.  This file 
+ is a black-list containing all (noun, verb_form) pairs that should be removed, and it can be edited.
+"""
+nmr_cases_fn = 'files/nmr_cases.csv'
+
+
+def generate_filtered_annotation_files():
+    """
+    Filtering annotations by removing NMR (noun, verb_form) cases.
+    """
+    orig_dir_path = "files/annotations/production/corrected"
+    dest_path = "files/annotations/production/corrected_filtered"
+    ann_files = [os.path.join(orig_dir_path, fn) for fn in os.listdir(orig_dir_path) if fn.endswith(".csv")]
+    for orig_fn in ann_files:
+        fix_annot_with_nmr_blacklist(orig_fn, dest_path)
+
+
+def fix_annot_with_nmr_blacklist(orig_annot_fn: str,
+                                 dest_dir: str) -> NoReturn:
+    from annotations.common import read_annot_csv, save_annot_csv
+    orig_df = read_annot_csv(orig_annot_fn)
+    filtered_df = remove_NMR_cases_from_annotations(orig_df)
+    # now export to file with same naming as orig (but in destination folder)
+    orig_dir, orig_name = os.path.split(orig_annot_fn)
+    dest_fn = os.path.join(dest_dir, orig_name)
+    save_annot_csv(filtered_df, dest_fn)
+
+
+def remove_NMR_cases_from_annotations(annot_df: pd.DataFrame) -> pd.DataFrame:
+    """ Take all predicates with NMR feedbacks, and remove them. return the filtered df. """
+    import csv
+    with open(nmr_cases_fn) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        not_morphologically_related_cases = list(csv_reader)[1:]
+    # incorporate both capital and non-capital to black-list of NMRs
+    from utils import flatten
+    nmrs = set(flatten([[(noun.capitalize(), verb),
+                        (noun.casefold(), verb)]
+                        for noun,verb in not_morphologically_related_cases]))
+    # remove these from annot_df
+    is_nmr = lambda r: (r.verb, r.verb_form) in nmrs
+    is_nmr_series =  annot_df.apply(is_nmr, axis=1)
+    print(f"filtering out {annot_df[is_nmr_series]['key'].drop_duplicates().shape[0]} Non-Morphologically-Related predicates ")
+    filtered_df = annot_df[~is_nmr_series]
+    return filtered_df
+
+
+def set_sentence_column(df: pd.DataFrame, df_with_sentences: pd.DataFrame) -> NoReturn:
+    """ Add 'sentence' to df by qasrl_id (inplace).
+    Use df_with_sentences (assuming it has both qasrl_id and sentence columns) to take the sentence from. """
+    sent_id2sent = dict(zip(df_with_sentences.qasrl_id, df_with_sentences.sentence))
+    df['sentence'] = df.qasrl_id.apply(sent_id2sent.get)
+
+
+def get_NMR_cases(feedbacks_dir: str) -> Set[Tuple[str, str]]:
+    """ get all NMR cases - all (noun, verb_form) pairs that got any NMR feedback anywhere.
+     The function would work for feedback files containing 'sentence' column.
+     """
+    from annotations.common import read_dir_of_csv
+    fddf = read_dir_of_csv(feedbacks_dir, sep="\t")
+    # fix feedback-files issues
+    fix_qasrl_id(fddf)
+    fddf['noun'] = fddf.apply(lambda r: r.sentence.split()[r.verb_idx], axis=1)
+    annotations_with_nmr = fddf[fddf.feedback.str.contains("NMR")]
+    nmr_cases = set(zip(annotations_with_nmr.noun, annotations_with_nmr.verb_form))
+    return nmr_cases
+
+
+def fix_qasrl_id(annot_df) -> NoReturn:
+    """
+    if the qasrl_id column is in the wrong form 'SentenceId(wikinews:99999:0:0)',
+    fix it to 'wikinews:99999:0:0'.
+    """
+    annot_df['qasrl_id'] = annot_df.qasrl_id.apply(lambda s:s.lstrip('SentenceId(').rstrip(')'))
+
+
+def set_feedback_column(annot_df: pd.DataFrame, feedbacks: pd.DataFrame) -> NoReturn:
+    fix_qasrl_id(feedbacks)
+    from qanom.annotations.common import set_key_column
+    set_key_column(feedbacks)
+    key2feedback = dict(zip(feedbacks.key, feedbacks.feedback))
+    annot_df['feedback'] = annot_df.key.apply(key2feedback.get)

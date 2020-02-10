@@ -48,6 +48,46 @@ def majority(lst: Iterable[bool], whenTie=True) -> bool:
         return s > len(lst)/2.0
 
 
+# list, dict and sets utils
+def is_iterable(e):
+    return '__iter__' in dir(e)
+
+
+def flatten(lst, recursively=False):
+    """ Flatten a list.
+    if recursively=True, flattens all levels of nesting, until reaching non-iterable items
+    (strings are considered non-iterable to that matter.)
+    :returns a flatten list (a non-nested list)
+    """
+    if not is_iterable(lst):
+        return lst
+    out = []
+    for element in lst:
+        if is_iterable(element):
+            if recursively:
+                out.extend(flatten(element))
+            else:
+                out.extend(element)
+        else:
+            out.append(element)
+    return out
+
+
+def is_nested(lst):
+    return any(is_iterable(e) for e in lst)
+
+
+def power_set(lst, as_list=True):
+    """ set as_list to false in order to yield the power-set """
+    import itertools
+    pwset_chain = itertools.chain.from_iterable(itertools.combinations(lst, r)
+                                                for r in range(len(lst) + 1))
+    if as_list:
+        return list(pwset_chain)
+    else:
+        return pwset_chain
+
+
 def static_variables(**kwargs):
     """ A decorator for creating static local variables for a function.
     Usage Example:
