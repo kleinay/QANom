@@ -4,11 +4,15 @@ from typing import Dict, List, Iterable, Union, NoReturn
 import pandas as pd
 
 
+def rename_column(df: pd.DataFrame, orig_label: str, new_label: str):
+    df.rename(mapper={orig_label:new_label}, axis=1, inplace=True)
+
 def concatCsvs(csv_fn_list: List[str], output_fn: str) -> NoReturn:
     inp_dfs = [pd.read_csv(fn) for fn in csv_fn_list]
     concatenated_df = pd.concat(inp_dfs)
     concatenated_df.to_csv(output_fn)
     print("output DataFrame shape: ", concatenated_df.shape)
+
 
 def asRelative(distribution : Union[List, Dict]):
     # get a list\dict of numbers (a distribution), return the relative distribution (element/sum)

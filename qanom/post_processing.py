@@ -7,6 +7,8 @@ from typing import *
 
 import pandas as pd
 
+import utils
+
 
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     """
@@ -115,8 +117,8 @@ def generate_filtered_annotation_files():
     """
     Filtering annotations by removing NMR (noun, verb_form) cases.
     """
-    orig_dir_path = "files/annotations/production/corrected"
-    dest_path = "files/annotations/production/corrected_filtered"
+    orig_dir_path = "files/annotations/production/generation/corrected"
+    dest_path = "files/annotations/production/generation/corrected_filtered"
     ann_files = [os.path.join(orig_dir_path, fn) for fn in os.listdir(orig_dir_path) if fn.endswith(".csv")]
     for orig_fn in ann_files:
         fix_annot_with_nmr_blacklist(orig_fn, dest_path)
@@ -187,3 +189,84 @@ def set_feedback_column(annot_df: pd.DataFrame, feedbacks: pd.DataFrame) -> NoRe
     set_key_column(feedbacks)
     key2feedback = dict(zip(feedbacks.key, feedbacks.feedback))
     annot_df['feedback'] = annot_df.key.apply(key2feedback.get)
+
+
+
+"""
+Functions for producing the final annotations - taking the .arbit file and adding the 
+predicates with isVerbal==false,false from generation (that haven't been sent to consolidation). 
+"""
+def generate_final_annotation_files() -> NoReturn:
+    """
+    Generating the final annotations -
+    1. taking the .arbit file and adding the predicates
+    with isVerbal==false,false from generation (that haven't been sent to consolidation).
+    2. Anonymize worker-id
+    """
+    gen_dir_path = "files/annotations/production/generation/corrected_filtered"
+    arb_dir_path = "files/annotations/production/arbitration"
+    dest_path = "files/annotations/production/final"
+    ann_files = [(os.path.join(arb_dir_path, fn), os.path.join(gen_dir_path, fn))
+                 for fn in os.listdir(arb_dir_path)
+                 if fn.endswith(".csv")]
+    from annotations.common import read_annot_csv, save_annot_csv
+    # prepare worker anonymization (dataset-wide)
+    all_worker_ids = {'A21LONLNBOB8Q', 'A2A4UAFZ5LW71K',
+                      'A3IR7DFEKLLLO', 'A98E8M4QLI9RS',
+                      'AJQGWGESKQT4Y', 'A1FS8SBR4SDWYG',
+                      'A25AX0DNHKJCQT'}
+    anonymization: Dict[str, str] = get_anonymization(all_worker_ids)
+    for arb_fn, gen_fn in ann_files:
+        arb_df = read_annot_csv(arb_fn)
+        gen_df = read_annot_csv(gen_fn)
+        # combine arb with (false,false) predicates from gen
+        combined_df = combine_to_final_annot(arb_df=arb_df, gen_df=gen_df)
+        # anonymize
+        anon_df = anonymize_workers(combined_df, anonymization)
+        # format data - drop unnecessary columns, rename
+        columns_to_drop = {'is_redundant', 'assign_id'}
+        final_df = anon_df.drop(columns=columns_to_drop)
+        utils.rename_column(final_df, 'verb', 'noun')
+        utils.rename_column(final_df, 'verb_idx', 'target_idx')
+        # save
+        fn = os.path.basename(arb_fn)
+        # remove prefix and put new one
+        fn = 'annot.final.' + fn.lstrip("arbit.")
+        dest_fn = os.path.join(dest_path, fn)
+        save_annot_csv(final_df, dest_fn)
+
+
+def combine_to_final_annot(arb_df: pd.DataFrame, gen_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add the predicates with isVerbal==false,false from generation to arbitration annotations.
+    """
+    gen_df_shallow = gen_df.drop_duplicates(['key', 'worker_id'])
+    key2ngen = dict(gen_df_shallow.key.value_counts())
+    gen_df_shallow['ngen'] = gen_df_shallow.key.apply(key2ngen.get)
+    # stay with those predicates with 2 generators
+    gen_df_2gen = gen_df_shallow[gen_df_shallow.ngen==2]
+    from annotations.analyze import isVerbalSumSeries
+    key2isVrbSum = dict(isVerbalSumSeries(gen_df_2gen))
+    gen_df_2gen['is_vrb_sum'] = gen_df_2gen.key.apply(key2isVrbSum.get)
+    # required predicates - those for which both generators agreed that is_verbal=False
+    gen_df_required = gen_df_2gen[gen_df_2gen.is_vrb_sum==0].drop_duplicates('key').drop(['ngen', 'is_vrb_sum'], axis=1)
+    final_df = pd.concat([gen_df_required, arb_df], ignore_index=True, sort=False)
+    return final_df
+
+
+def get_anonymization(all_worker_ids: Set[str]) -> Dict[str, str]:
+    import random
+    wid_list : List[str] = random.shuffle(sorted(all_worker_ids))
+    wid2anon_wid = {wid : "Worker-"+str(wid_list.index(wid)+1)
+                    for wid in wid_list}
+    return wid2anon_wid
+
+
+def anonymize_workers(annot_df: pd.DataFrame, worker_id_anonymization: Dict[str, str]) -> pd.DataFrame:
+    res = annot_df.copy()
+    workers_labels = [label for label in annot_df.columns if 'worker' in label]
+    for lbl in workers_labels:
+        for wid, new_wid in worker_id_anonymization.items():
+            res[lbl] = res[lbl].str.replace(wid, new_wid)
+    return res
+
