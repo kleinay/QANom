@@ -10,6 +10,31 @@ import pandas as pd
 import utils
 
 
+# general post-processing function
+def postprocess_annotation_files(orig_dir: str, dest_dir: str,
+                                 process_annot_func: Callable[[pd.DataFrame,], pd.DataFrame],
+                                 file_name_modification_func: Callable[[str,], str] = lambda s:s) -> NoReturn:
+    """
+    :param orig_dir: Directory from which to take the annottion to process (input)
+    :param dest_dir: Directory to which the processed annotation files are to be exported
+    :param process_annot_func: a function that gets an annot_df and returns a processed (i.e. corrected or changed,
+    to some aspect) annot_df
+    :param file_name_modification_func: how to change an annotation file-name from source-dir to dest-dir
+    :return:
+    """
+    ann_files = [os.path.join(orig_dir, fn) for fn in os.listdir(orig_dir) if fn.endswith(".csv")]
+    from annotations.common import read_annot_csv, save_annot_csv
+    for orig_fn in ann_files:
+        orig_df = read_annot_csv(orig_fn)
+        new_df = process_annot_func(orig_df)
+        # now export to file with same naming as orig (but in destination folder)
+        orig_dir, orig_name = os.path.split(orig_fn)
+        new_name = file_name_modification_func(orig_name)
+        dest_fn = os.path.join(dest_dir, new_name)
+        save_annot_csv(new_df, dest_fn)
+        print(f"exported annotations to {dest_fn}")
+
+
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     """
     Verify that all the HITs of the annotated data are valid according to the latest version of

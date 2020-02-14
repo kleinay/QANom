@@ -1,4 +1,4 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, field, asdict
 from typing import List, Iterable, Tuple, Generator
 
 import pandas as pd
@@ -53,7 +53,7 @@ class Role:
 class Response:
     is_verbal: bool
     verb_form: str
-    roles: List[Role] = None
+    roles: List[Role] = field(default_factory=list)
 
     def all_args(self) -> List[Argument]:
         return [arg for role in self.roles for arg in role.arguments]
