@@ -56,7 +56,7 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
         not re-annotate this target noun.
     """
     def annot_row_to_corrected_verb_form(row: pd.Series) -> str:
-        from qanom import prepare_qanom_prompts
+        from candidate_extraction import prepare_qanom_prompts
         noun = row.verb
         uptodate_verb_forms, is_had_uptodate_verbs = \
             prepare_qanom_prompts.get_verb_forms_from_lexical_resources(noun, **prepare_qanom_prompts.resources)

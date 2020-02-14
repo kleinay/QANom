@@ -32,10 +32,9 @@ from typing import *
 
 from nltk.parse import CoreNLPParser
 
-from qanom import catvar as catvar_util
-from qanom import wordnet_util
-from qanom.annotations.common import read_csv
-from qanom.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
+from candidate_extraction import wordnet_util, catvar as catvar_util
+from annotations.common import read_csv
+from candidate_extraction.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
 
 """ Define which resources should be used (by default) for filtering nouns as candidate nominalizations. """
 resources = {"wordnet": True,

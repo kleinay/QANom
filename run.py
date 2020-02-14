@@ -2,22 +2,24 @@
 # identifying candidate nominalization for sentences.
 # This script can be called from everywhere, and it will run the qanom module 'prepare_qanom_prompts.py' after changing directroy as required, using a python executable in 'QANom/.venv3'.
 
-import os, sys, subprocess
+import os
+import subprocess
+import sys
+
+import qanom.config
 
 # globals
-qanom_repo_root_locaction = 'QANom' 	# location of the QANom project root directory 
+qanom_repo_root = qanom.config.repository_root_path 	# location of the QANom project root directory
 							# (where the qanom package and virtual env resides)
-assert os.path.isdir(qanom_repo_root_locaction), "Wrong location for QANom repository"							
+assert os.path.isdir(qanom_repo_root), "Wrong location for QANom repository"
 							
-qanom_repo_root = os.path.abspath(qanom_repo_root_locaction)							
-virtual_env_name = '.venv3'							
-python_exe = os.path.join(qanom_repo_root, virtual_env_name, 'bin/python')
+virtual_env_name = '.venv3'
+python_exe = os.path.join(qanom_repo_root, virtual_env_name, 'bin', 'python')
 assert os.path.isfile(python_exe), "Cannot find python executable"
 
-main_package = 'qanom'
-main_package_path = os.path.join(qanom_repo_root, main_package)
 script_name = 'prepare_qanom_prompts.py'
-script = os.path.join(qanom_repo_root, main_package, script_name)
+script_packages = ['qanom', 'candidate_extraction']
+script = os.path.join(qanom_repo_root, *script_packages, script_name)
 assert os.path.isfile(script), "Cannot find script: " + script 
 
 # cmd-line args

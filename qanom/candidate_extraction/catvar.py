@@ -1,4 +1,6 @@
-import config, os
+import config
+import os
+
 catvar_corpus_relative_path = "catvar21/catvar21.signed" # should be in 'resources' directory
 catvar_corpus_path = os.path.join(config.resources_path, catvar_corpus_relative_path)
 
