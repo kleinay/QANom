@@ -1,5 +1,4 @@
 import io
-import sys
 
 import pandas as pd
 
@@ -13,6 +12,8 @@ def loadLineSplitFiles(file_name, deserialize_block_func=lambda blockString: blo
     :param file_name:
     :param deserialize_block_func:
         If provided, the function will yield the block deserialized into an object.
+    :param skip_first_line:
+    :param encoding:
     :return: yield deserialize_block_func(block) for block in the file
     """
     with io.open(file_name, "r", encoding=encoding) as f:
@@ -32,10 +33,6 @@ def loadLineSplitFiles(file_name, deserialize_block_func=lambda blockString: blo
 
 def df_from_table_string(table_string, col_names = None):
     """ Return a pd.DataFrame from a multi-line table string."""
-    if sys.version_info[0] < 3:
-        from StringIO import StringIO
-    else:
-        from io import StringIO
-
+    from io import StringIO
     strIO = StringIO(table_string)
     return pd.read_table(strIO, header=None, names=col_names)

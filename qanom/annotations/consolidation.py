@@ -2,17 +2,20 @@
  (typically two) into a final, non-redundant annotation. """
 from typing import *
 
+import annotations.common
 import annotations.decode_encode_answers
 import utils
 from annotations.common import *
 from annotations.decode_encode_answers \
     import Argument, Role, Response, encode_response, arg_length
-from annotations.evaluate import iou
+from evaluation.evaluate import iou
 
-FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'worker_id',
-       'assign_id', 'is_verbal', 'verb_form', 'question',
-       'answer_range', 'answer', 'wh', 'subj', 'obj', 'obj2',
-       'aux', 'prep', 'verb_prefix', 'is_passive', 'is_negated']
+FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb',
+                 'worker_id', 'assign_id',
+                 'is_verbal', 'verb_form',
+                 'question', 'answer_range', 'answer',
+                 'wh', 'subj', 'obj', 'obj2', 'aux', 'prep', 'verb_prefix',
+                 'is_passive', 'is_negated']
 # original annot files include also 'source_assign_id' and 'is_redundant' (for arbitration\validation)
 
 def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -55,7 +58,7 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_aligned_roles(resp1: Response, resp2: Response) -> List[Role]:
     # take only aligned arguments along with their full Role (=QA)
-    from annotations.evaluate import find_matches
+    from evaluation.evaluate import find_matches
     alignment: Dict[Argument, Argument] = find_matches(resp1.all_args(), resp2.all_args())
 
     # Helper func:
@@ -146,13 +149,13 @@ def auto_consolidate_predicate(responses: List[Response], method: str = "interse
 
 def auto_consolidation_iaa_experiment(dup_annot_df: pd.DataFrame) -> float:
     # returns argument F1 agreement
-    import qanom.annotations.evaluate_inter_annotator as eia
+    import evaluation.evaluate_inter_annotator as eia
     desired_workers = ['A1FS8SBR4SDWYG', 'A21LONLNBOB8Q', 'A2A4UAFZ5LW71K', 'AJQGWGESKQT4Y']
     only4w = dup_annot_df[dup_annot_df.worker_id.isin(desired_workers)]
     df = only4w
     df['n_workers'] = df.groupby('key').worker_id.transform(pd.Series.nunique)
     only4w = df[df.n_workers == 4]
-    print(f"number of predicates with full annotation of same 4 workers: {eia.get_n_predicates(only4w)}")
+    print(f"number of predicates with full annotation of same 4 workers: {annotations.common.get_n_predicates(only4w)}")
 
     grp1, grp2 = ['A1FS8SBR4SDWYG', 'AJQGWGESKQT4Y'], ['A21LONLNBOB8Q', 'A2A4UAFZ5LW71K']
     r2grp = lambda r: "grp1" if r.worker_id in grp1 else "grp2"

@@ -3,7 +3,8 @@ from typing import *
 
 import pandas as pd
 
-import qanom.annotations.evaluate_inter_annotator as eia
+import annotations.common
+import evaluation.evaluate_inter_annotator as eia
 from qanom import utils
 
 
@@ -31,7 +32,7 @@ def isVerbalStatistics(annot_df: pd.DataFrame):
 def most_controversial_predicates(annot_df: pd.DataFrame):
     from scipy import stats
     from qanom.annotations.common import normalize
-    sent_map: Dict[str, List[str]] = eia.get_sent_map(annot_df)
+    sent_map: Dict[str, List[str]] = annotations.common.get_sent_map(annot_df)
     cols = ['qasrl_id', 'verb_idx', 'verb']
     entropies = annot_df.groupby(cols).is_verbal.agg(lambda s: stats.entropy(normalize(s.value_counts()), base=2))
     print(entropies.sort_values(ascending=False))

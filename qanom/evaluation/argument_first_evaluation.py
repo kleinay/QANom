@@ -4,10 +4,10 @@ from typing import List, Dict, Tuple, Generator
 import pandas as pd
 from tqdm import tqdm
 
-from annotations.common import read_annot_csv, read_csv
+from annotations.common import read_annot_csv, read_csv, get_sent_map
 from annotations.decode_encode_answers import NO_RANGE, decode_qasrl, Argument, Role, Response, \
     decode_response
-from annotations.evaluate import evaluate, Metrics, BinaryClassificationMetrics
+from evaluation.evaluate import evaluate, Metrics, BinaryClassificationMetrics
 
 
 def to_arg_roles(roles: List[Role]):
@@ -45,8 +45,7 @@ def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool) \
         -> Tuple[Metrics, Metrics, BinaryClassificationMetrics, pd.DataFrame]:
     if not sent_map:
         annot_df = pd.merge(sys_df[['qasrl_id', 'sentence']], grt_df[['qasrl_id', 'sentence']])
-        import annotations.evaluate_inter_annotator
-        sent_map = annotations.evaluate_inter_annotator.get_sent_map(annot_df)
+        sent_map = get_sent_map(annot_df)
     arg_metrics = Metrics.empty()
     role_metrics = Metrics.empty()
     is_nom_counts = BinaryClassificationMetrics.empty()
@@ -78,6 +77,19 @@ def eval_datasets(sys_df, grt_df, sent_map, allow_overlaps: bool) \
     return arg_metrics, role_metrics, is_nom_counts, all_matchings
 
 
+def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Generator[Tuple[Tuple[str,int],Response,Response], None, None]:
+    grt_predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    sys_predicate_ids = sys_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    # Include only those predicates which are both in grt and in sys
+    predicate_ids = pd.merge(grt_predicate_ids, sys_predicate_ids, how='inner')
+    for idx, row in predicate_ids.iterrows():
+        sys_arg_rows = sys_df[filter_ids(sys_df, row)].copy()
+        grt_arg_rows = grt_df[filter_ids(grt_df, row)].copy()
+        sys_response = decode_response(sys_arg_rows)
+        grt_response = decode_response(grt_arg_rows)
+        yield (row.qasrl_id, row.verb_idx), sys_response, grt_response
+
+
 def main(sentences_path: str, proposed_path: str, reference_path: str):
     sent_df = read_csv(sentences_path)
     sent_map = dict(zip(sent_df.qasrl_id, sent_df.tokens.apply(str.split)))
@@ -92,18 +104,6 @@ def main(sentences_path: str, proposed_path: str, reference_path: str):
     print("ROLE: Prec/Recall ", role.prec(), role.recall(), role.f1())
     print("NOM-IDENT: Prec/Recall ", isnom.prec(), isnom.recall(), isnom.f1())
     return (arg, role, isnom)
-
-def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Generator[Tuple[Tuple[str,int],Response,Response], None, None]:
-    grt_predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
-    sys_predicate_ids = sys_df[['qasrl_id', 'verb_idx']].drop_duplicates()
-    # Include only those predicates which are both in grt and in sys
-    predicate_ids = pd.merge(grt_predicate_ids, sys_predicate_ids, how='inner')
-    for idx, row in predicate_ids.iterrows():
-        sys_arg_rows = sys_df[filter_ids(sys_df, row)].copy()
-        grt_arg_rows = grt_df[filter_ids(grt_df, row)].copy()
-        sys_response = decode_response(sys_arg_rows)
-        grt_response = decode_response(grt_arg_rows)
-        yield (row.qasrl_id, row.verb_idx), sys_response, grt_response
 
 
 if __name__ == "__main__":

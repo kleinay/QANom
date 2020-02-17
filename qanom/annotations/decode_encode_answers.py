@@ -1,3 +1,18 @@
+"""
+For clarification:  we use the terms "encoding" and "decoding" for the bidirectional path between two formats
+of the qanom data. This script and the functions within it refer to the *exported CSV file* as the "encoded" format,
+and to the code-internal annot_df format (in which some columns values are objects\instances, and not strings)
+as the "decoded" format. The decoded format is easily transferrable between DataFrame and the QANom class hierarchy
+defined in this file (Response, Role and Question. Argument is actually just an alias for Tuple[int, int]).
+Main differences:
+* a single answer span:
+ ** encoded: answer-spans are strings in the form f"{start}:{end}" , e.g. "2:3"
+ ** decoded: answer-spans are objects of type Tuple[int, int] , e.g. (2,3)
+* answer / answer_range columns:
+ ** encoded: "he~!~John", "2:3~!~7:8"
+ ** decoded: ["he", "John"], [(2,3), (7,8)]
+"""
+
 from dataclasses import dataclass, field, asdict
 from typing import List, Iterable, Tuple, Generator
 
@@ -71,16 +86,16 @@ def encode_argument(arg: Iterable[Argument]) -> str:
 
 
 def encode_span(span: Argument):
-    if span == NO_RANGE:
+    if span == NO_RANGE or not span:
         return NO_RANGE
     return "{}:{}".format(span[0], span[1])
 
 
-def encode_argument_text(arg_text: str):
+def encode_argument_text(arg_text: Iterable[str]):
     return SPAN_SEPARATOR.join(arg_text)
 
 
-def arguments_to_text(arguments: Iterable[Argument], tokens: List[str]) -> str:
+def encode_argument_text_from_spans(arguments: Iterable[Argument], tokens: List[str]) -> str:
     """ Return a string for the CSV field 'answer' """
     return SPAN_SEPARATOR.join([span_to_text(span, tokens) for span in arguments])
 
@@ -168,7 +183,7 @@ def encode_response(response: Response, sentence: str) -> pd.DataFrame:
         questionDict['question'] = questionDict.pop('text')
         qaDict = dict(questionDict,
                       answer_range=encode_argument(role.arguments),
-                      answer=arguments_to_text(role.arguments, sentence.split(" ")))
+                      answer=encode_argument_text_from_spans(role.arguments, sentence.split(" ")))
         rowDict = dict(qaDict, **common_for_rows)
         return rowDict
 

@@ -5,38 +5,11 @@ from typing import List, Dict, Any
 
 import pandas as pd
 
-from annotations.argument_first_evaluation import eval_datasets
-from annotations.common import read_annot_csv, set_key_column
+from annotations.common import read_annot_csv, set_key_column, get_sent_map, get_n_predicates, get_n_positive_predicates
 from annotations.decode_encode_answers import decode_qasrl
-from annotations.evaluate import Metrics, BinaryClassificationMetrics
+from evaluation.argument_first_evaluation import eval_datasets
+from evaluation.evaluate import Metrics, BinaryClassificationMetrics
 
-""" Helper funcs for important information within an annotation DataFrame """
-def get_sent_map(annot_df: pd.DataFrame) -> Dict[str, List[str]]:
-    sent_map = dict(zip(annot_df.qasrl_id, annot_df.sentence.apply(str.split)))
-    return sent_map
-
-def set_n_workers(df: pd.DataFrame) -> pd.DataFrame:
-    # per predicate
-    cols = ['qasrl_id', 'verb_idx']
-    df['n_workers'] = df.groupby(cols).worker_id.transform(pd.Series.nunique)
-    return df
-
-def set_n_roles(df: pd.DataFrame) -> pd.DataFrame:
-    # per predicate per worker
-    cols = ['qasrl_id', 'verb_idx']
-    df['n_roles'] = df.groupby(cols + ['worker_id']).verb.transform(pd.Series.count)
-    return df
-
-def get_n_predicates(df: pd.DataFrame) -> int:
-    # overall
-    cols = ['qasrl_id', 'verb_idx']
-    return df[cols].drop_duplicates().shape[0]
-
-def get_n_positive_predicates(worker_df: pd.DataFrame) -> int:
-    # gets a df of a single worker, returns number of isVerbal==True in his annotations
-    reduced_df = worker_df.drop_duplicates(subset=["key"])
-    n_positive_predicates = reduced_df.is_verbal.sum()
-    return n_positive_predicates
 
 # describe statistics of the saved annotated data
 def get_worker_statistics(annot_df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
