@@ -38,7 +38,7 @@ def main():
         res = eval_datasets(worker_df, w_ref, sent_map, allow_overlaps=False)
 
         # Step 3: for each worker, get argument precision and recall, and avg. number of questions per verb.
-        arg_counts, role_counts, isnom_counts, all_matchings = res
+        arg_counts, larg_counts, role_counts, isnom_counts, all_matchings = res
         tp, fp, fn = arg_counts
         prec = tp / (tp + fp)
         recall = tp / (tp + fn)

@@ -184,6 +184,7 @@ def ensure_no_overlaps(roles: List[Role], is_verbose=False) -> List[Role]:
 
 
 def find_matches(sys_args: List[Argument], grt_args: List[Argument]) -> Dict[Argument, Argument]:
+    """ Matching sys and grt arguments based in span overlap (IOU above threshold). """
     matches = ((sys_arg, grt_arg, iou(sys_arg, grt_arg))
                for sys_arg, grt_arg in product(sys_args, grt_args))
     # get any overlapping pairs between SYS and GRT
@@ -219,15 +220,17 @@ def evaluate(sys_response: Response,
     is_nom_metrics = BinaryClassificationMetrics.simple_boolean_decision(sys_response.is_verbal, grt_response.is_verbal)
 
     # todo decide on evaluation of roles where is_verbal mismatch - should the roles be included in the role_count metric?
-    # Currently excluding these mismatches from the arg & roles metrices
+    # Currently excluding these mismatches from the arg & roles metrics
     if is_nom_metrics.errors() == 0:
         arg_metrics = eval_arguments(grt_roles, sys_roles, sys_to_grt)
+        labeled_arg_metrics = eval_labeled_arguments(grt_roles, sys_roles, sys_to_grt)
         role_metrics = eval_roles(grt_roles, sys_roles, sys_to_grt)
     else:
         arg_metrics = Metrics.empty()
+        labeled_arg_metrics = Metrics.empty()
         role_metrics = Metrics.empty()
 
-    return arg_metrics, role_metrics, is_nom_metrics, sys_to_grt
+    return arg_metrics, labeled_arg_metrics, role_metrics, is_nom_metrics, sys_to_grt
 
 
 def count_arguments(roles: List[Role]):
@@ -240,6 +243,38 @@ def eval_arguments(grt_roles: List[Role], sys_roles: List[Role], sys_to_grt: Dic
     fn_arg_count = count_arguments(grt_roles) - tp_arg_count
     return Metrics(tp_arg_count, fp_arg_count, fn_arg_count)
 
+
+def eval_labeled_arguments(grt_roles: List[Role], sys_roles: List[Role], sys_to_grt: Dict[Argument, Argument]) -> Metrics:
+    """ LA metric - Labeled Argument match - spans overlap and questions are equivalent. """
+    tp_arg_count = count_labeled_arg_matches(grt_roles, sys_roles, sys_to_grt)
+    fp_arg_count = count_arguments(sys_roles) - tp_arg_count
+    fn_arg_count = count_arguments(grt_roles) - tp_arg_count
+    return Metrics(tp_arg_count, fp_arg_count, fn_arg_count)
+
+
+def count_labeled_arg_matches(grt_roles: List[Role], sys_roles: List[Role], sys_to_grt: Dict[Argument, Argument]) -> int:
+    """ Count the number of labeled_matching among argument-match (TP) -
+    i.e. only if corresponding questions are equivalent. """
+    # for each argument in sys_to_grt, find corresponding question from its role
+    def find_role(arg: Argument, roles: List[Role]) -> Role:
+        for r in roles:
+            if arg in r.arguments:
+                return r
+
+    sys_arg2q: Dict[Argument, Role] = {arg : find_role(arg, sys_roles)
+                                       for arg in sys_to_grt.keys()}
+    grt_arg2q: Dict[Argument, Role] = {arg : find_role(arg, grt_roles)
+                                       for arg in sys_to_grt.values()}
+    from evaluation.roles import is_equivalent_question
+
+    def is_labeled_arg_match(sys_arg: Argument, grt_arg: Argument) -> bool:
+        sys_question = sys_arg2q[sys_arg].question
+        grt_question = grt_arg2q[grt_arg].question
+        return is_equivalent_question(sys_question, grt_question)
+
+    return sum(1
+               for arg_match in sys_to_grt.items()
+               if is_labeled_arg_match(*arg_match))
 
 class RoleAlignment:
 

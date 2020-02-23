@@ -73,7 +73,7 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
         w1_df = annot_df[annot_df.worker_id == w1].copy()
         w2_df = annot_df[annot_df.worker_id == w2].copy()
         # compute 1:1 agreements
-        arg_metrics, role_metrics, nom_ident_metrics, matching_args = eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
+        arg_metrics, larg_metrics, role_metrics, nom_ident_metrics, matching_args = eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
         #matching_args['key'] = matching_args.apply(lambda r: r['qasrl_id']+"_"+str(r['verb_idx']), axis=1)
         # Arg-Accuracy: metric is f1, weight is number of predicted arguments
         arg_agreements[w1].append(arg_metrics)
@@ -117,25 +117,30 @@ def evaluate_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
         print(f"metric\tworker_1\tworker_2\tprec\trecall\tf1")
 
     total_arg_metric = Metrics.empty()
+    total_larg_metric = Metrics.empty()
     total_role_metric = Metrics.empty()
     total_nomIdent_metric : BinaryClassificationMetrics = BinaryClassificationMetrics.empty()
     for w1, w2 in combinations(workers, r=2):
         w1_df = annot_df[annot_df.worker_id == w1].copy()
         w2_df = annot_df[annot_df.worker_id == w2].copy()
-        arg_metrics, role_metrics, nom_ident_metrics, _ = eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
+        arg_metrics, labeled_arg_metrics, role_metrics, nom_ident_metrics, _ = \
+            eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
         if verbose:
             print(f"\nComparing  {w1}   to   {w2}:   [p,r,f1]")
             print(f"Number of shared predicates: {get_n_predicates(pd.merge(w1_df, w2_df, on=cols))}")
-            print(f"ARG:\t{arg_metrics.prec():.3f}\t{arg_metrics.recall():.3f}\t{arg_metrics.f1():.3f}")
-            print(f"ROLE:\t{role_metrics.prec():.3f}\t{role_metrics.recall():.3f}\t{role_metrics.f1():.3f}")
+            print(f"ARG:\t{arg_metrics}")
+            print(f"Labeled ARG:\t{labeled_arg_metrics}")
+            print(f"ROLE:\t{role_metrics}")
             print(f"NOM_IDENT:\t{w1}\t{w2}\t{nom_ident_metrics.prec():.3f}\t{nom_ident_metrics.recall():.3f}\t{nom_ident_metrics.f1():.3f}")
             print(f"NOM_IDENT accuracy: {nom_ident_metrics.accuracy():.3f}, {int(nom_ident_metrics.errors())} mismathces out of {nom_ident_metrics.instances()} predicates.")
         total_arg_metric += arg_metrics
+        total_larg_metric += labeled_arg_metrics
         total_role_metric += role_metrics
         total_nomIdent_metric += nom_ident_metrics
 
     print(f"\nOverall pairwise agreement:")
     print(f"arg-f1 : {total_arg_metric.f1():.4f}")
+    print(f"labeled-arg-f1 : {total_larg_metric.f1():.4f}")
     print(f"role-f1 : {total_role_metric.f1():.4f}")
     print(f"is-verbal-accuracy: {total_nomIdent_metric.accuracy():.4f}    for {total_nomIdent_metric.instances()} pairwise comparisons.")
     return total_arg_metric.f1()
