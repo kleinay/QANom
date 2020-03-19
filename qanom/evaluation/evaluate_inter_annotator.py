@@ -5,7 +5,8 @@ from typing import List, Dict, Any
 
 import pandas as pd
 
-from annotations.common import read_annot_csv, set_key_column, get_sent_map, get_n_predicates, get_n_positive_predicates
+from annotations.common import read_annot_csv, set_key_column, get_sent_map, \
+    get_n_predicates, get_n_positive_predicates, get_n_assignments
 from annotations.decode_encode_answers import decode_qasrl
 from evaluation.argument_first_evaluation import eval_datasets
 from evaluation.evaluate import Metrics, BinaryClassificationMetrics
@@ -28,6 +29,20 @@ def get_worker_statistics_from_file(anot_fn):
 
 """ Analysis functions"""
 
+def print_annot_statistics(annot_df: pd.DataFrame):
+    n_assignments = get_n_assignments(annot_df)
+    n_predicates = get_n_predicates(annot_df)
+    n_positive_predicates = get_n_positive_predicates(annot_df)
+    roleDist = Counter(annot_df[annot_df.is_verbal].groupby(['key','worker_id']).agg(pd.Series.count)['question'])
+    sum_roles = sum(k * v for k, v in roleDist.items())
+    num_roles_average = sum_roles / float(n_assignments)
+    num_positive_wo_qas = roleDist[0]
+    print(f'#-predicates: {n_predicates}')
+    print(f'#-Roles per predicate Distribution: {roleDist}')
+    print(f'#-Roles average (for positive predicates): {num_roles_average:.2f}')
+    print(f'#-positive predicates with NO role: {num_positive_wo_qas}'
+          f'  ({num_positive_wo_qas/float(n_positive_predicates):.2f}% of positives)')
+
 
 def describe_worker_work(annot_df: pd.DataFrame):
     cols = ['qasrl_id', 'verb_idx']
@@ -42,16 +57,8 @@ def describe_worker_work(annot_df: pd.DataFrame):
          - # distribution of #-roles per positive predicate
         """
         print(f"********** Worker {worker}: ************")
-        df: pd.DataFrame = annot_df[annot_df.worker_id == worker]
-        n_predicates = get_n_predicates(df)
-        n_positive_predicates = get_n_positive_predicates(df)
-        roleDist = Counter(df[df.is_verbal].groupby('key').agg(pd.Series.count)['question'])
-        sum_roles = sum(k*v for k,v in roleDist.items())
-        num_roles_average = sum_roles / float(n_positive_predicates)
-        print(f'#-predicates: {n_predicates}')
-        print(f'#-positive predicates: {n_positive_predicates} , ({float(n_positive_predicates)/n_predicates:.2f})')
-        print(f'#-Roles per predicate Distribution: {roleDist}')
-        print(f'#-Roles average (for positive predicates): {num_roles_average:.2f}')
+        worker_df: pd.DataFrame = annot_df[annot_df.worker_id == worker]
+        print_annot_statistics(worker_df)
         print(agreement_stats[worker])
     #  todo complete it with more info?
 
@@ -139,10 +146,10 @@ def evaluate_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
         total_nomIdent_metric += nom_ident_metrics
 
     print(f"\nOverall pairwise agreement:")
-    print(f"arg-f1 : {total_arg_metric.f1():.4f}")
-    print(f"labeled-arg-f1 : {total_larg_metric.f1():.4f}")
-    print(f"role-f1 : {total_role_metric.f1():.4f}")
-    print(f"is-verbal-accuracy: {total_nomIdent_metric.accuracy():.4f}    for {total_nomIdent_metric.instances()} pairwise comparisons.")
+    print(f"arg-f1 \t {total_arg_metric.f1():.4f}")
+    print(f"labeled-arg-f1 \t {total_larg_metric.f1():.4f}")
+    print(f"role-f1 \t {total_role_metric.f1():.4f}")
+    print(f"is-verbal-accuracy \t {total_nomIdent_metric.accuracy():.4f}    for {total_nomIdent_metric.instances()} pairwise comparisons.")
     return total_arg_metric.f1()
 
 

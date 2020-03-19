@@ -74,10 +74,10 @@ def question_to_sem_role(q: Question) -> SemanticRole:
             return SemanticRole.R0
         elif not q.obj:
             return SemanticRole.R1
-        elif not q.obj2:
+        elif not q.obj2 or q.obj2 in ['do', 'doing']:
             return get_R2()
         else:
-            raise Exception(f"ungrammatical question: {q} ; all core args a present in core-role active question.")
+            raise Exception(f"ungrammatical question: {q} ; all core args are present in core-role active question.")
 
     elif q.wh in core_wh_words and q.is_passive:
         if not q.subj:
@@ -89,7 +89,11 @@ def question_to_sem_role(q: Question) -> SemanticRole:
             else:
                 return get_R2()
         else:
-            raise Exception(f"ungrammatical question: {q} ; both subj and obj are present in core-role passive question.")
+            # not in their table, but can be found in data - e.g. "what was someone awarded something for?"
+            if q.prep == "by":
+                return SemanticRole.R0
+            else:
+                return get_R2()
 
     # voice (passive/active) has no effect on adjunct questions
     elif q.wh in adjunct_wh_words:
