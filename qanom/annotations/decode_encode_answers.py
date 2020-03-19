@@ -18,8 +18,6 @@ from typing import List, Iterable, Tuple, Generator
 
 import pandas as pd
 
-from annotations import common
-
 SPAN_SEPARATOR = "~!~"
 NO_RANGE = ""
 INVALID = "INVALID"
@@ -157,7 +155,8 @@ def decode_qasrl(qasrl_df: pd.DataFrame) -> pd.DataFrame:
         if c in qasrl_df:
             qasrl_df[c].fillna("", inplace=True)
 
-    common.set_key_column(qasrl_df)
+    from qanom.annotations.common import set_key_column
+    set_key_column(qasrl_df)
     return qasrl_df
 
 

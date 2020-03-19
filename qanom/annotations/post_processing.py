@@ -7,10 +7,11 @@ from typing import *
 
 import pandas as pd
 
-import utils
+from qanom import utils
+from qanom.annotations import common
 
 
-# general post-processing function
+# generic post-processing function
 def postprocess_annotation_files(orig_dir: str, dest_dir: str,
                                  process_annot_func: Callable[[pd.DataFrame,], pd.DataFrame],
                                  file_name_modification_func: Callable[[str,], str] = lambda s:s) -> NoReturn:
@@ -33,6 +34,15 @@ def postprocess_annotation_files(orig_dir: str, dest_dir: str,
         dest_fn = os.path.join(dest_dir, new_name)
         save_annot_csv(new_df, dest_fn)
         print(f"exported annotations to {dest_fn}")
+
+
+def merge_csvs(csvs: List[str], dest: str) -> pd.DataFrame:
+    import qanom.annotations.common as common
+    dfs = [common.read_csv(csv_fn) for csv_fn in csvs]
+    merged_df = df=pd.concat(dfs, ignore_index=True, sort=False)
+    merged_df.to_csv(dest, index=False, encoding="utf-8")
+    print(f"exported DataFrame with shape {merged_df.shape} to {dest}")
+    return merged_df
 
 
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
@@ -167,8 +177,7 @@ def remove_NMR_cases_from_annotations(annot_df: pd.DataFrame) -> pd.DataFrame:
         csv_reader = csv.reader(csv_file, delimiter=',')
         not_morphologically_related_cases = list(csv_reader)[1:]
     # incorporate both capital and non-capital to black-list of NMRs
-    from utils import flatten
-    nmrs = set(flatten([[(noun.capitalize(), verb),
+    nmrs = set(utils.flatten([[(noun.capitalize(), verb),
                         (noun.casefold(), verb)]
                         for noun,verb in not_morphologically_related_cases]))
     # remove these from annot_df
@@ -216,49 +225,105 @@ def set_feedback_column(annot_df: pd.DataFrame, feedbacks: pd.DataFrame) -> NoRe
     annot_df['feedback'] = annot_df.key.apply(key2feedback.get)
 
 
+"""
+Functions for adjusting the "duplicated" annotation to the complete dataset - select one worker triplet, 
+and take their annotations as regular (non-duplicated) annotations.  
+"""
+
+
+def prune_duplicated_annot(gen_dupl_df: pd.DataFrame, arb_dupl_df: pd.DataFrame) -> pd.DataFrame:
+
+    def get_annot_of_single_worker(df: pd.DataFrame) -> pd.DataFrame:
+        """ For each predicate, get only annotations of one worker."""
+        delim = '--'
+        df['workers_str'] = df.groupby('key').worker_id.transform(lambda v: delim.join(set(v)))
+        df['worker_index'] = df.apply(lambda r: r['workers_str'].split(delim).index(r.worker_id), axis=1)
+        return df[df['worker_index'] == 0].drop(['workers_str', 'worker_index'], axis=1)
+
+    sing_arb_df = get_annot_of_single_worker(arb_dupl_df)
+    # now find those predicates that are in generation but not in single arbitration -
+    # and take one "isVerbal==False" response into final csv
+    keys_in_arb = set(sing_arb_df.key)
+    gen_df_required = gen_dupl_df[(~gen_dupl_df.key.isin(keys_in_arb)) & (~gen_dupl_df.is_verbal)]
+    # key only single row (response) per predicate
+    gen_df_required = gen_df_required.drop_duplicates('key')
+    combined_df = pd.concat([gen_df_required, sing_arb_df], ignore_index=True, sort=False)
+    final_df = convert_to_final_annot(combined_df, get_anonymization(all_worker_ids))
+    return final_df
+
+
+def generate_pruned_dupl_annot() -> NoReturn:
+    gen_dupl_fn = "files/annotations/gold_set/generation/corrected_filtered/annot.dupl.wikinews.dev.5.csv"
+    arb_dupl_fn = "files/annotations/gold_set/arbitration/arbit.dupl.wikinews.dev.5.csv"
+    out_fn = "files/annotations/gold_set/final/annot.final.wikinews.dev.5.csv"
+    gen_dupl_df = common.read_annot_csv(gen_dupl_fn)
+    arb_dupl_df = common.read_annot_csv(arb_dupl_fn)
+    pruned_final_df = prune_duplicated_annot(gen_dupl_df, arb_dupl_df)
+    common.save_annot_csv(pruned_final_df, out_fn)
+
 
 """
 Functions for producing the final annotations - taking the .arbit file and adding the 
 predicates with isVerbal==false,false from generation (that haven't been sent to consolidation). 
 """
+
+# all workers participating in our annotation project
+all_worker_ids = {'A21LONLNBOB8Q', 'A2A4UAFZ5LW71K',
+                  'A3IR7DFEKLLLO', 'A98E8M4QLI9RS',
+                  'AJQGWGESKQT4Y', 'A1FS8SBR4SDWYG',
+                  'A25AX0DNHKJCQT'}
+
+
 def generate_final_annotation_files() -> NoReturn:
     """
-    Generating the final annotations -
+    Generating the final gold annotations -
     1. taking the .arbit file and adding the predicates
     with isVerbal==false,false from generation (that haven't been sent to consolidation).
     2. Anonymize worker-id
+    3. Adjust CSV columns
     """
-    gen_dir_path = "files/annotations/production/generation/corrected_filtered"
-    arb_dir_path = "files/annotations/production/arbitration"
-    dest_path = "files/annotations/production/final"
-    ann_files = [(os.path.join(arb_dir_path, fn), os.path.join(gen_dir_path, fn))
+    gen_dir_path = "files/annotations/gold_set/generation/corrected_filtered"
+    arb_dir_path = "files/annotations/gold_set/arbitration"
+    dest_path = "files/annotations/gold_set/final"
+    arb_name_to_gen_name = lambda name: '.'.join(['annot'] + name.split('.')[1:])
+    ann_files = [(os.path.join(arb_dir_path, fn), os.path.join(gen_dir_path, arb_name_to_gen_name(fn)))
                  for fn in os.listdir(arb_dir_path)
-                 if fn.endswith(".csv")]
+                 if fn.endswith(".csv") and arb_name_to_gen_name(fn) in os.listdir(gen_dir_path)]
     from annotations.common import read_annot_csv, save_annot_csv
     # prepare worker anonymization (dataset-wide)
-    all_worker_ids = {'A21LONLNBOB8Q', 'A2A4UAFZ5LW71K',
-                      'A3IR7DFEKLLLO', 'A98E8M4QLI9RS',
-                      'AJQGWGESKQT4Y', 'A1FS8SBR4SDWYG',
-                      'A25AX0DNHKJCQT'}
     anonymization: Dict[str, str] = get_anonymization(all_worker_ids)
     for arb_fn, gen_fn in ann_files:
         arb_df = read_annot_csv(arb_fn)
         gen_df = read_annot_csv(gen_fn)
         # combine arb with (false,false) predicates from gen
         combined_df = combine_to_final_annot(arb_df=arb_df, gen_df=gen_df)
-        # anonymize
-        anon_df = anonymize_workers(combined_df, anonymization)
-        # format data - drop unnecessary columns, rename
-        columns_to_drop = {'is_redundant', 'assign_id'}
-        final_df = anon_df.drop(columns=columns_to_drop)
-        utils.rename_column(final_df, 'verb', 'noun')
-        utils.rename_column(final_df, 'verb_idx', 'target_idx')
+        # make internal aesthetic modifications in the DataFrame
+        final_df = convert_to_final_annot(combined_df, anonymization)
         # save
         fn = os.path.basename(arb_fn)
         # remove prefix and put new one
         fn = 'annot.final.' + fn.lstrip("arbit.")
         dest_fn = os.path.join(dest_path, fn)
         save_annot_csv(final_df, dest_fn)
+
+
+def convert_to_final_annot(combined_df: pd.DataFrame, anonymization: Dict[str, str]) -> pd.DataFrame:
+    """
+    Process annot_df with final modifications for dataset publish -
+        1. anonymize worker_id
+        2. drop unnecessary columns - 'is_redundant', 'assign_id'
+        3. rename columns - 'verb' -> 'noun';  'verb_idx' -> 'target_idx'
+    @:argument combined_df: a complete annotation dataframe (that includes arbitrator annotation and the
+    "is_verbal=False,False" predicates from generation.
+    """
+    # anonymize
+    anon_df = anonymize_workers(combined_df, anonymization)
+    # format data - drop unnecessary columns, rename
+    columns_to_drop = {'is_redundant', 'assign_id'}
+    final_df = anon_df.drop(columns=columns_to_drop)
+    utils.rename_column(final_df, 'verb', 'noun')
+    utils.rename_column(final_df, 'verb_idx', 'target_idx')
+    return final_df
 
 
 def combine_to_final_annot(arb_df: pd.DataFrame, gen_df: pd.DataFrame) -> pd.DataFrame:
@@ -281,7 +346,9 @@ def combine_to_final_annot(arb_df: pd.DataFrame, gen_df: pd.DataFrame) -> pd.Dat
 
 def get_anonymization(all_worker_ids: Set[str]) -> Dict[str, str]:
     import random
-    wid_list : List[str] = random.shuffle(sorted(all_worker_ids))
+    random.seed(1000)
+    wid_list : List[str] = list(sorted(all_worker_ids))
+    random.shuffle(wid_list)
     wid2anon_wid = {wid : "Worker-"+str(wid_list.index(wid)+1)
                     for wid in wid_list}
     return wid2anon_wid
@@ -294,4 +361,26 @@ def anonymize_workers(annot_df: pd.DataFrame, worker_id_anonymization: Dict[str,
         for wid, new_wid in worker_id_anonymization.items():
             res[lbl] = res[lbl].str.replace(wid, new_wid)
     return res
+
+
+def generate_final_train_annotations() -> NoReturn:
+    """
+    Generating the final train-set annotations -
+    1. Anonymize worker-id
+    2. Adjust CSV columns
+    """
+    orig_train_dir_path = "files/annotations/train_set"
+    dest_path = "files/annotations/train_set/final"
+    ann_files = [fn for fn in os.listdir(orig_train_dir_path) if fn.endswith('.csv')]
+    from annotations.common import read_annot_csv, save_annot_csv
+    # prepare worker anonymization (dataset-wide)
+    anonymization: Dict[str, str] = get_anonymization(all_worker_ids)
+    for gen_fn in ann_files:
+        gen_df = read_annot_csv(gen_fn)
+        # make internal aesthetic modifications in the DataFrame
+        final_df = convert_to_final_annot(gen_df, anonymization)
+        # save
+        fn = os.path.basename(gen_fn)
+        dest_fn = os.path.join(dest_path, fn)
+        save_annot_csv(final_df, dest_fn)
 

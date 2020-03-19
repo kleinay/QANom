@@ -29,8 +29,9 @@ def replaceKeys(orig_dict, oldKeys2NewKeys, inplace=True):
     """ replace keys with new keys using oldKeys2NewKeys mapping. """
     target_dict = orig_dict if inplace else {}
     for oldKey, newKey in oldKeys2NewKeys.items():
-        target_dict[newKey] = orig_dict.get(oldKey)
-        if inplace: orig_dict.pop(oldKey)
+        if oldKey in orig_dict:
+            target_dict[newKey] = orig_dict.get(oldKey)
+            if inplace: orig_dict.pop(oldKey)
     return target_dict
 
 
