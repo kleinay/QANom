@@ -4,13 +4,26 @@ from typing import Dict, List, Iterable, Union, NoReturn
 import pandas as pd
 
 
+def is_empty_string_series(series: pd.Series) -> pd.Series:
+    """ Return boolean Series capturing whether `series` is empty string or NA """
+    series = series.fillna('')
+    isEmpty = series==''
+    return isEmpty
+
+def count_empty_string(series: pd.Series) -> int:
+    """ Return number of empty strings or NA in a Series """
+    return is_empty_string_series(series).sum()
+
 def rename_column(df: pd.DataFrame, orig_label: str, new_label: str):
     df.rename(mapper={orig_label:new_label}, axis=1, inplace=True)
 
-def concatCsvs(csv_fn_list: List[str], output_fn: str) -> NoReturn:
+def concatCsvs(csv_fn_list: List[str], output_fn: str, columns: List[str] = None) -> NoReturn:
     inp_dfs = [pd.read_csv(fn) for fn in csv_fn_list]
-    concatenated_df = pd.concat(inp_dfs)
-    concatenated_df.to_csv(output_fn)
+    concatenated_df = pd.concat(inp_dfs, ignore_index=True, sort=False)
+    # `columns` can determine subset (and order) of output columns
+    if columns:
+        concatenated_df = concatenated_df[columns]
+    concatenated_df.to_csv(output_fn, index=False)
     print("output DataFrame shape: ", concatenated_df.shape)
 
 

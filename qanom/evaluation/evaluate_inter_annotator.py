@@ -110,7 +110,9 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
     return worker_general_statistics
 
 
-def evaluate_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
+
+
+def evaluate_inter_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
     cols = ['qasrl_id', 'verb_idx']
     sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
     n_gen = annot_df.groupby(cols).worker_id.transform(pd.Series.nunique)
@@ -158,7 +160,7 @@ def main(annotation_path: str):
     annot_df = decode_qasrl(annot_df)
     # original annotations, multiple generation tasks per predicate
     print(annot_df.worker_id.value_counts())
-    evaluate_generator_agreement(annot_df, verbose=True)
+    evaluate_inter_generator_agreement(annot_df, verbose=True)
 
 def main_iaa_per_worker(annotation_path: str):
     annot_df = read_annot_csv(annotation_path)

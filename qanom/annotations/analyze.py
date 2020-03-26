@@ -47,26 +47,26 @@ different domains, or different kinds of questions. Here are a bunch of helper f
 """
 def analyze_by_column_value(annot_df: pd.DataFrame,
                             column: str,
-                            analysis_func: Callable[[pd.DataFrame,],Any] = eia.evaluate_generator_agreement):
+                            analysis_func: Callable[[pd.DataFrame,],Any] = eia.evaluate_inter_generator_agreement):
     for key, df in annot_df.groupby(column):
         print(f"Results for {column}=={key}:")
-        analysis_func(df)
-        print()
+        res = analysis_func(df)
+        print(res or "")
 
 def analyze_by_wh_word(annot_df: pd.DataFrame,
-                       analysis_func: Callable[[pd.DataFrame,],Any] = eia.evaluate_generator_agreement):
+                       analysis_func: Callable[[pd.DataFrame,],Any] = eia.evaluate_inter_generator_agreement):
     analyze_by_column_value(annot_df, 'wh', analysis_func)
 
 def analyze_by_wh_group(annot_df: pd.DataFrame,
-                        analysis_func: Callable[[pd.DataFrame,],Any] = eia.evaluate_generator_agreement,
+                        analysis_func: Callable[[pd.DataFrame,],Any] = eia.evaluate_inter_generator_agreement,
                         wh_groups={"modifiers (where, when)": ["where", "when", "how long", "how much"],
                                    "core (who, what)": ["who", "what"],
-                                   "implied (how, why)": ["how", "why"]}):
+                                   "implied (how, why)": ["how", "why"]}) -> Any:
     wh2groupName = {wh: grp
                     for grp, whs in wh_groups.items()
                     for wh in whs}
     # create a new column for group, to utilize analyze_by_column_value
     grouping_column = 'wh-group'
     annot_df[grouping_column]=annot_df.wh.apply(wh2groupName.get)
-    analyze_by_column_value(annot_df, column=grouping_column, analysis_func=analysis_func)
+    return analyze_by_column_value(annot_df, column=grouping_column, analysis_func=analysis_func)
 

@@ -152,8 +152,10 @@ def generate_filtered_annotation_files():
     """
     Filtering annotations by removing NMR (noun, verb_form) cases.
     """
-    orig_dir_path = "files/annotations/production/generation/corrected"
-    dest_path = "files/annotations/production/generation/corrected_filtered"
+    # orig_dir_path = "files/annotations/gold_set/generation/corrected"
+    # dest_path = "files/annotations/gold_set/generation/corrected_filtered"
+    orig_dir_path = "files/annotations/train_set/orig"
+    dest_path = "files/annotations/train_set/filtered"
     ann_files = [os.path.join(orig_dir_path, fn) for fn in os.listdir(orig_dir_path) if fn.endswith(".csv")]
     for orig_fn in ann_files:
         fix_annot_with_nmr_blacklist(orig_fn, dest_path)
@@ -204,7 +206,7 @@ def get_NMR_cases(feedbacks_dir: str) -> Set[Tuple[str, str]]:
     # fix feedback-files issues
     fix_qasrl_id(fddf)
     fddf['noun'] = fddf.apply(lambda r: r.sentence.split()[r.verb_idx], axis=1)
-    annotations_with_nmr = fddf[fddf.feedback.str.contains("NMR")]
+    annotations_with_nmr = fddf[fddf.feedback.astype(str).str.lower().str.contains("nmr")]
     nmr_cases = set(zip(annotations_with_nmr.noun, annotations_with_nmr.verb_form))
     return nmr_cases
 
@@ -319,7 +321,7 @@ def convert_to_final_annot(combined_df: pd.DataFrame, anonymization: Dict[str, s
     # anonymize
     anon_df = anonymize_workers(combined_df, anonymization)
     # format data - drop unnecessary columns, rename
-    columns_to_drop = {'is_redundant', 'assign_id'}
+    columns_to_drop = {'is_redundant', 'assign_id', 'source_assign_id'} & set(anon_df.columns)
     final_df = anon_df.drop(columns=columns_to_drop)
     utils.rename_column(final_df, 'verb', 'noun')
     utils.rename_column(final_df, 'verb_idx', 'target_idx')
@@ -359,7 +361,7 @@ def anonymize_workers(annot_df: pd.DataFrame, worker_id_anonymization: Dict[str,
     workers_labels = [label for label in annot_df.columns if 'worker' in label]
     for lbl in workers_labels:
         for wid, new_wid in worker_id_anonymization.items():
-            res[lbl] = res[lbl].str.replace(wid, new_wid)
+            res[lbl] = res[lbl].astype(str).str.replace(wid, new_wid)
     return res
 
 
@@ -369,9 +371,10 @@ def generate_final_train_annotations() -> NoReturn:
     1. Anonymize worker-id
     2. Adjust CSV columns
     """
-    orig_train_dir_path = "files/annotations/train_set"
+    orig_train_dir_path = "files/annotations/train_set/filtered"
     dest_path = "files/annotations/train_set/final"
-    ann_files = [fn for fn in os.listdir(orig_train_dir_path) if fn.endswith('.csv')]
+    ann_files = [os.path.join(orig_train_dir_path, fn)
+                 for fn in os.listdir(orig_train_dir_path) if fn.endswith('.csv')]
     from annotations.common import read_annot_csv, save_annot_csv
     # prepare worker anonymization (dataset-wide)
     anonymization: Dict[str, str] = get_anonymization(all_worker_ids)

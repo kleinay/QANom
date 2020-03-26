@@ -82,6 +82,12 @@ def set_key_column(annot_df: pd.DataFrame):
         annot_df['key'] = annot_df.apply(lambda r: r['qasrl_id']+"_"+str(r[pred_idx_label]), axis=1)
 
 
+def set_sentence_columns(annot_df: pd.DataFrame, sentence_df: pd.DataFrame) -> NoReturn:
+    """ Set a 'sentence' column to `annot_df` based on its `qasrl_id`. Retrieve sentence from `sentence_df`."""
+    sent_map = get_sent_map(sentence_df)
+    annot_df['sentence'] = annot_df.apply(lambda r: ' '.join(sent_map[r.qasrl_id]), axis=1)
+
+
 def get_sent_map(annot_df: pd.DataFrame) -> Dict[str, List[str]]:
     sent_map = dict(zip(annot_df.qasrl_id, annot_df.sentence.apply(str.split)))
     return sent_map
@@ -120,3 +126,21 @@ def get_n_positive_predicates(annot_df: pd.DataFrame) -> int:
     reduced_df = annot_df.drop_duplicates(subset=["key", "worker_id"])
     n_positive_predicates = reduced_df.is_verbal.sum()
     return n_positive_predicates
+
+
+def get_n_QAs(annot_df: pd.DataFrame) -> int:
+    from qanom import utils
+    not_questions = utils.count_empty_string(annot_df.question)
+    return annot_df.shape[0] - not_questions
+
+
+def filter_questions(annot_df: pd.DataFrame) -> pd.DataFrame:
+    """ Return subset of `annot_df` with rows that corresponds to a non-empty question """
+    from qanom import utils
+    with_q = annot_df[~utils.is_empty_string_series(annot_df.question)]
+    return with_q
+
+
+def get_n_argument_taking_predicates(annot_df: pd.DataFrame) -> int:
+    with_q = filter_questions(annot_df)
+    return get_n_positive_predicates(with_q)

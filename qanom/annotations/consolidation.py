@@ -168,4 +168,4 @@ def auto_consolidation_iaa_experiment(dup_annot_df: pd.DataFrame) -> float:
     import annotations.decode_encode_answers as decode_encode
     meta_decoded_df = decode_encode.decode_qasrl(meta_df)
     # print IAA
-    return eia.evaluate_generator_agreement(meta_decoded_df)
+    return eia.evaluate_inter_generator_agreement(meta_decoded_df)
