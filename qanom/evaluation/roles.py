@@ -7,16 +7,22 @@ They define the role space (R) as:
 
 """
 import enum
+import logging
 
-from annotations.decode_encode_answers import Question
+from qanom.annotations.decode_encode_answers import Question
+
+# create logger with 'spam_application'
+logger = logging.getLogger('spam_application')
+logger.setLevel(logging.DEBUG)
 
 core_wh_words = {'what', 'who'}
 adjunct_wh_words = {'how', 'how long', 'how much', 'when', 'where', 'why'}
 
-all_prepositions_in_gold = {
+all_prepositions_in_dataset = {
  'about',
  'against',
  'along',
+ 'around',
  'as',
  'as doing',
  'at',
@@ -24,23 +30,29 @@ all_prepositions_in_gold = {
  'by',
  'by doing',
  'doing',
+ 'during',
  'for',
+ 'for doing',
  'from',
  'in',
+ 'in doing',
  'into',
  'of',
  'of doing',
  'on',
  'on doing',
+ 'out',
  'over',
  'to',
  'to do',
  'to doing',
  'towards',
- 'with'
+ 'with',
+ 'up to',
+ 'with doing'
 }
 
-
+UNGRAMMATICAL = "Ungrammatical-question" # this role is for predicted question with non-grammatical structure
 """
 SemanticRole will represented by a string, denoting the roles by:
     "R0", "R1", "R2", "where", "when", ..., "R2_about", "R2_against", ..., "where_about", "where_against", ... 
@@ -48,10 +60,11 @@ SemanticRole will represented by a string, denoting the roles by:
 role_space = {"R0", "R1", "R2"} | \
              adjunct_wh_words | \
              {"R2_" + p
-              for p in all_prepositions_in_gold} | \
+              for p in all_prepositions_in_dataset} | \
              {wh + "_" + p
               for wh in adjunct_wh_words
-              for p in all_prepositions_in_gold}
+              for p in all_prepositions_in_dataset} | \
+             {UNGRAMMATICAL} # this role is for predicted question with non-grammatical structure
 
 SemanticRole = enum.Enum("SemanticRole", {r: r for r in role_space})
 
@@ -77,7 +90,8 @@ def question_to_sem_role(q: Question) -> SemanticRole:
         elif not q.obj2 or q.obj2 in ['do', 'doing']:
             return get_R2()
         else:
-            raise Exception(f"ungrammatical question: {q} ; all core args are present in core-role active question.")
+            logger.warning(f"ungrammatical question: {q} ; all core args are present in core-role active question.")
+            return SemanticRole(UNGRAMMATICAL)
 
     elif q.wh in core_wh_words and q.is_passive:
         if not q.subj:
@@ -102,4 +116,6 @@ def question_to_sem_role(q: Question) -> SemanticRole:
         else:
             return SemanticRole(q.wh)
 
-    raise Exception(f"ungrammatical question: {q}")
+    logger.warning(f"ungrammatical question: {q}")
+    return SemanticRole(UNGRAMMATICAL)
+
