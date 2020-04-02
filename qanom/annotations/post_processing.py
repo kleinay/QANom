@@ -339,6 +339,9 @@ def combine_to_final_annot(arb_df: pd.DataFrame, gen_df: pd.DataFrame) -> pd.Dat
     gen_df_shallow['ngen'] = gen_df_shallow.key.apply(key2ngen.get)
     gen_df_2gen = gen_df_shallow[gen_df_shallow.ngen==2]
 
+    # don't fail on duplicated annotation file
+    if gen_df_2gen.size==0:
+        return arb_df
     # required predicates - those predicates which got no questions (by no generator)
     # these were not sent to arbitration - we have decided to declare them as "not verbal".
     gen_df_2gen = common.set_n_roles_per_predicate(gen_df_2gen)
