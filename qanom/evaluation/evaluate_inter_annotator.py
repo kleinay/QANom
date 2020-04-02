@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 import pandas as pd
 
 from annotations.common import read_annot_csv, set_key_column, get_sent_map, \
-    get_n_predicates, get_n_positive_predicates, get_n_assignments
+    get_n_predicates, get_n_positive_predicates, get_n_assignments, filter_questions
 from annotations.decode_encode_answers import decode_qasrl
 from evaluation.argument_first_evaluation import eval_datasets
 from evaluation.evaluate import Metrics, BinaryClassificationMetrics
@@ -33,7 +33,8 @@ def print_annot_statistics(annot_df: pd.DataFrame):
     n_assignments = get_n_assignments(annot_df)
     n_predicates = get_n_predicates(annot_df)
     n_positive_predicates = get_n_positive_predicates(annot_df)
-    roleDist = Counter(annot_df[annot_df.is_verbal].groupby(['key','worker_id']).agg(pd.Series.count)['question'])
+    annot_with_questions_df = filter_questions(annot_df)
+    roleDist = Counter(annot_with_questions_df.groupby(['key','worker_id']).agg(pd.Series.count)['question'])
     sum_roles = sum(k * v for k, v in roleDist.items())
     num_roles_average = sum_roles / float(n_assignments)
     num_positive_wo_qas = roleDist[0]

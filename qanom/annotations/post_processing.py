@@ -330,18 +330,22 @@ def convert_to_final_annot(combined_df: pd.DataFrame, anonymization: Dict[str, s
 
 def combine_to_final_annot(arb_df: pd.DataFrame, gen_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Add the predicates with isVerbal==false,false from generation to arbitration annotations.
+    Add the dropped predicates from generation (not passed to arb) to arbitration annotations.
     """
+    # stay with onw row per predicate
     gen_df_shallow = gen_df.drop_duplicates(['key', 'worker_id'])
+    # stay with those predicates with 2 generators
     key2ngen = dict(gen_df_shallow.key.value_counts())
     gen_df_shallow['ngen'] = gen_df_shallow.key.apply(key2ngen.get)
-    # stay with those predicates with 2 generators
     gen_df_2gen = gen_df_shallow[gen_df_shallow.ngen==2]
-    from annotations.analyze import isVerbalSumSeries
-    key2isVrbSum = dict(isVerbalSumSeries(gen_df_2gen))
-    gen_df_2gen['is_vrb_sum'] = gen_df_2gen.key.apply(key2isVrbSum.get)
-    # required predicates - those for which both generators agreed that is_verbal=False
-    gen_df_required = gen_df_2gen[gen_df_2gen.is_vrb_sum==0].drop_duplicates('key').drop(['ngen', 'is_vrb_sum'], axis=1)
+
+    # required predicates - those predicates which got no questions (by no generator)
+    # these were not sent to arbitration - we have decided to declare them as "not verbal".
+    gen_df_2gen = common.set_n_roles_per_predicate(gen_df_2gen)
+    gen_df_required = gen_df_2gen[gen_df_2gen['n_roles'] == 0]
+    # remove duplicates and drop auxiliary columns
+    gen_df_required = gen_df_required.drop_duplicates('key').drop(['ngen', 'n_roles', 'no_roles'], axis=1)
+    # combine gen with arb
     final_df = pd.concat([gen_df_required, arb_df], ignore_index=True, sort=False)
     return final_df
 

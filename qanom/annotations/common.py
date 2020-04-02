@@ -3,6 +3,7 @@ from typing import NoReturn, Dict, List, Iterator, Tuple
 import numpy as np
 import pandas as pd
 
+from qanom import utils
 from qanom.annotations.decode_encode_answers import Response, decode_response
 
 
@@ -101,10 +102,19 @@ def set_n_workers(df: pd.DataFrame) -> pd.DataFrame:
 
 def set_n_roles(df: pd.DataFrame) -> pd.DataFrame:
     # per predicate per worker
-    df['no_roles'] = df.groupby(['key', 'worker_id']).question.transform(lambda x: x.isnull().sum())
-    df['num_rows'] = df.groupby(['key', 'worker_id']).verb.transform(pd.Series.count)
+    df['no_roles'] = df.groupby(['key', 'worker_id']).wh.transform(lambda x: x.isnull().sum())
+    df['num_rows'] = df.groupby(['key', 'worker_id']).wh.transform(pd.Series.count)
     df['n_roles'] = df.apply(lambda r: r['num_rows']-r['no_roles'], axis=1)
     df = df.drop('num_rows', axis=1)
+    return df
+
+
+def set_n_roles_per_predicate(df: pd.DataFrame) -> pd.DataFrame:
+    # per predicate, count roles joint from all workers
+    df['no_roles'] = df.groupby('key').wh.transform(lambda x: utils.is_empty_string_series(x).sum())
+    df['num_rows'] = df.groupby('key').wh.transform(pd.Series.count)
+    df['n_roles'] = df.apply(lambda r: r['num_rows']-r['no_roles'], axis=1)
+    df = df.drop(['num_rows'], axis=1)
     return df
 
 
@@ -129,15 +139,21 @@ def get_n_positive_predicates(annot_df: pd.DataFrame) -> int:
 
 
 def get_n_QAs(annot_df: pd.DataFrame) -> int:
-    from qanom import utils
     not_questions = utils.count_empty_string(annot_df.question)
     return annot_df.shape[0] - not_questions
 
 
 def filter_questions(annot_df: pd.DataFrame) -> pd.DataFrame:
     """ Return subset of `annot_df` with rows that corresponds to a non-empty question """
-    from qanom import utils
     with_q = annot_df[~utils.is_empty_string_series(annot_df.question)]
+    return with_q
+
+
+def filter_non_questions(annot_df: pd.DataFrame) -> pd.DataFrame:
+    """ Return subset of `annot_df` with rows that corresponds to an empty question
+    (which are either not-verbal or marked with "no-QA-applicable")"""
+    from qanom import utils
+    with_q = annot_df[utils.is_empty_string_series(annot_df.question)]
     return with_q
 
 
