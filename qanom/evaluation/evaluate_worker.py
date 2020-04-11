@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import pandas as pd
 
 from annotations.common import read_annot_csv, read_csv
-from evaluation.argument_first_evaluation import eval_datasets
+from evaluation.evaluate import eval_datasets
 
 
 def parse_args():
@@ -24,7 +24,6 @@ def main():
     qasrl = read_annot_csv(qasrl_path)
     ref = read_annot_csv(args.ref_path)
     sents = read_csv(args.sent_path)
-    sent_map = dict(zip(sents.qasrl_id, sents.tokens.apply(str.split)))
 
     worker_data = []
     # Step 1: get a dataset for each worker
@@ -35,7 +34,7 @@ def main():
         # with the reference on common predicate ids.
         w_pred_ids = worker_df[['qasrl_id', 'verb_idx']].drop_duplicates()
         w_ref = pd.merge(ref, w_pred_ids, on=['qasrl_id', 'verb_idx'])
-        res = eval_datasets(worker_df, w_ref, sent_map, allow_overlaps=False)
+        res = eval_datasets(worker_df, w_ref)
 
         # Step 3: for each worker, get argument precision and recall, and avg. number of questions per verb.
         arg_counts, larg_counts, role_counts, isnom_counts, all_matchings = res

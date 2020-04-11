@@ -1,218 +1,106 @@
-from dataclasses import dataclass, astuple
-from itertools import combinations, product
-from typing import List, Dict
+from argparse import ArgumentParser
+from typing import List, Dict, Tuple, Generator
 
-import numpy as np
+import pandas as pd
+from tqdm import tqdm
 
-from annotations.decode_encode_answers import Argument, Role, Response
-
-MATCH_IOU_THRESHOLD = 0.3
-
-
-@dataclass
-class Metrics:
-    true_positive: int
-    false_positive: int
-    false_negative: int
-
-    def prec(self) -> float:
-        n_predicted = self.true_positive + self.false_positive
-        if not n_predicted:
-            return 1.0
-        return float(self.true_positive) / n_predicted
-
-    def recall(self) -> float:
-        n_true = self.true_positive + self.false_negative
-        if not n_true:
-            return 1.0
-        return float(self.true_positive) / n_true
-
-    def f1(self) -> float:
-        p, r = self.prec(), self.recall()
-        if p + r == 0:
-            return 0
-        return 2 * p * r / (p + r)
-
-    def positives(self) -> int:
-        return self.true_positive + self.false_positive
-
-    def errors(self) -> int:
-        return self.false_negative + self.false_positive
-
-    def accuracy(self, n_decisions: int) -> float:
-        return 1 - (self.errors()/float(n_decisions))
-
-    def as_np(self):
-        """ Return the tuple representation of this Metrics as numpy array. """
-        return np.array(astuple(self))
-
-    """ Operators """
-    def __add__(self, other):
-        if other == 0:
-            return self
-        return Metrics( *(self.as_np() + np.array(astuple(other))))
-
-    def __radd__(self, other):
-        if other == 0:
-            return self
-        return Metrics( *(self.as_np() + np.array(astuple(other))))
-
-    def __str__(self):
-        return f"P: {self.prec():.3f}   R: {self.recall():.3f}   F1: {self.f1():.3f}"
-
-    def __repr__(self):
-        return str(self)
-
-    @classmethod
-    def empty(cls):
-        return Metrics(0,0,0)
+from annotations.common import read_annot_csv, read_csv, get_sent_map
+from annotations.decode_encode_answers import NO_RANGE, Argument, Role, Question, Response, \
+    decode_response
+from evaluation.alignment import find_matches, align_by_argument
+from evaluation.metrics import Metrics, BinaryClassificationMetrics
 
 
-@dataclass
-class BinaryClassificationMetrics:
-    """ Helper dataclass to compute accuracy on a binary classification task. """
-    true_positive: int
-    true_negative: int
-    false_positive: int
-    false_negative: int
-
-    def instances(self) -> int:
-        """ Number of decisions counted in this Metric """
-        return sum([self.true_positive, self.true_negative, self.false_positive, self.false_negative])
-
-    def positives(self) -> int:
-        return self.true_positive + self.false_positive
-
-    def errors(self) -> int:
-        return self.false_negative + self.false_positive
-
-    def correct_predictions(self) -> int:
-        return self.true_positive + self.true_negative
-
-    def accuracy(self) -> float:
-        if not self.instances():
-            return 1.0
-        return self.correct_predictions() / float(self.instances())
-
-    """ When desired, we can also treat it as a retrieval problem with p, r & f1. """
-    def prec(self):
-        n_predicted = self.true_positive + self.false_positive
-        if not n_predicted:
-            return 1.0
-        return float(self.true_positive) / n_predicted
-
-    def recall(self):
-        n_true = self.true_positive + self.false_negative
-        if not n_true:
-            return 1.0
-        return float(self.true_positive) / n_true
-
-    def f1(self):
-        p, r = self.prec(), self.recall()
-        if p+r == 0:
-            return 0
-        return 2 * p * r / (p + r)
-
-    def as_np(self):
-        """ Return the tuple representation of this Metrics as numpy array. """
-        return np.array(astuple(self))
-
-    """ Operators """
-    def __add__(self, other):
-        if other == 0:
-            return self
-        return BinaryClassificationMetrics( *(self.as_np() + np.array(astuple(other))))
-
-    def __radd__(self, other):
-        if other == 0:
-            return self
-        return BinaryClassificationMetrics(*(self.as_np() + np.array(astuple(other))))
-
-    def __mul__(self, other: int):
-        return BinaryClassificationMetrics( *(self.as_np()*other) )
-
-    def __sub__(self, other):
-        return BinaryClassificationMetrics( *(self.as_np() - np.array(astuple(other))))
-
-    @classmethod
-    def empty(cls):
-        return BinaryClassificationMetrics(0,0,0,0)
-
-    @classmethod
-    def simple_boolean_decision(cls, sys_decision: bool, grt_decision: bool):
-        tp = int(sys_decision and grt_decision)
-        tn = int(not sys_decision and not grt_decision)
-        fp = int(sys_decision and not grt_decision)
-        fn = int(not sys_decision and grt_decision)
-        return BinaryClassificationMetrics(tp,tn,fp,fn)
+def to_qa_pair(roles: List[Role]) -> List[Tuple[Argument, Question]]:
+    return [(arg, role.question) for role in roles for arg in role.arguments]
 
 
-def iou(arg1: Argument, arg2: Argument):
-    joint = joint_len(arg1, arg2)
-    len1 = arg1[1] - arg1[0]
-    len2 = arg2[1] - arg2[0]
-    union = len1 + len2 - joint
-    return float(joint) / union
+def build_all_qa_pairs(sys_roles: List[Role],
+                       grt_roles: List[Role],
+                       sys_to_grt_matches: Dict[Argument, Argument]):
+    grt_qa_pairs = to_qa_pair(grt_roles)
+    sys_qa_pairs = to_qa_pair(sys_roles)
+
+    grt_qa_pairs = pd.DataFrame(grt_qa_pairs, columns=["grt_arg", "grt_role"])
+    sys_qa_pairs = pd.DataFrame(sys_qa_pairs, columns=["sys_arg", "sys_role"])
+    # Dictionary mapping with None values
+    sys_qa_pairs['grt_arg'] = sys_qa_pairs.sys_arg.apply(sys_to_grt_matches.get)
+    all_qa_pairs = pd.merge(sys_qa_pairs, grt_qa_pairs, on="grt_arg", how="outer")
+    all_qa_pairs.grt_arg.fillna(NO_RANGE, inplace=True)
+    all_qa_pairs.sys_arg.fillna(NO_RANGE, inplace=True)
+
+    return all_qa_pairs
 
 
-def joint_len(arg1: Argument, arg2: Argument):
-    max_start = max(arg1[0], arg2[0])
-    min_end = min(arg1[1], arg2[1])
-    joint = max(min_end - max_start, 0)
-    return joint
+def filter_ids(df, row):
+    return (df.qasrl_id == row.qasrl_id) & (df.verb_idx == row.verb_idx)
 
 
-def ensure_no_overlaps(roles: List[Role], is_verbose=False) -> List[Role]:
-    # for consistency, and being order independent, remove overlapping arguments
-    # in some consistent sorting order.
-    roles = sorted(roles, key=lambda role: role.arguments[0][0] + role.arguments[0][1])
-    is_done = False
-    while not is_done:
-        is_done = True
-        # for simplicity renew upon every new iteration
-        arg_to_role = [(arg, role) for role in roles for arg in role.arguments]
-        for (arg_1, role_1), (arg_2, role_2) in combinations(arg_to_role, r=2):
-            if joint_len(arg_1, arg_2):
-                if is_verbose:
-                    print(f"conflict:\t{arg_1}\t{arg_2}")
-
-                is_done = False
-                role_2.remove(arg_2)
-
-    roles = [role for role in roles if role.arguments]
-    return roles
+def fill_answer(arg: Argument, tokens: List[str]):
+    if arg == NO_RANGE:
+        return NO_RANGE
+    return " ".join(tokens[arg[0]: arg[1]])
 
 
-def find_matches(sys_args: List[Argument], grt_args: List[Argument]) -> Dict[Argument, Argument]:
-    """ Matching sys and grt arguments based in span overlap (IOU above threshold). """
-    matches = ((sys_arg, grt_arg, iou(sys_arg, grt_arg))
-               for sys_arg, grt_arg in product(sys_args, grt_args))
-    # get any overlapping pairs between SYS and GRT
-    matches = [(sys_arg, grt_arg, score)
-               for (sys_arg, grt_arg, score) in matches
-               if score > MATCH_IOU_THRESHOLD]
-    matches = sorted(matches, key=lambda m: m[2], reverse=True)
-    if not matches:
-        return dict()
+def eval_datasets(sys_df, grt_df, sent_map= None) \
+        -> Tuple[Metrics, Metrics, Metrics, BinaryClassificationMetrics, pd.DataFrame]:
+    if not sent_map:
+        annot_df = pd.merge(sys_df[['qasrl_id', 'sentence']], grt_df[['qasrl_id', 'sentence']])
+        sent_map = get_sent_map(annot_df)
+    arg_metrics = Metrics.empty()
+    labeled_arg_metrics = Metrics.empty()
+    role_metrics = Metrics.empty()
+    is_nom_counts = BinaryClassificationMetrics.empty()
+    all_matchings = []
+    for key, sys_response, grt_response in tqdm(yield_paired_predicates(sys_df, grt_df), leave=False):
+        qasrl_id, verb_idx = key
+        tokens = sent_map[qasrl_id]
+        local_arg_metric, local_labeled_arg_metric, local_role_metric, local_is_nom_metric, sys_to_grt = \
+            evaluate_response(sys_response, grt_response)
+        arg_metrics += local_arg_metric
+        labeled_arg_metrics += local_labeled_arg_metric
+        role_metrics += local_role_metric
+        is_nom_counts += local_is_nom_metric
+        all_args = build_all_qa_pairs(sys_response.roles, grt_response.roles, sys_to_grt)
+        all_args['qasrl_id'] = qasrl_id
+        all_args['verb_idx'] = verb_idx
+        all_args['grt_arg_text'] = all_args.grt_arg.apply(fill_answer, tokens=tokens)
+        all_args['sys_arg_text'] = all_args.sys_arg.apply(fill_answer, tokens=tokens)
+        all_matchings.append(all_args)
 
-    used_sys_args, used_grt_args = set(), set()
-    sys_to_grt = {}
-    for (sys_arg, grt_arg, score) in matches:
-        if grt_arg in used_grt_args or sys_arg in used_sys_args:
-            continue
-        sys_to_grt[sys_arg] = grt_arg
-        used_sys_args.add(sys_arg)
-        used_grt_args.add(grt_arg)
+    # todo verify fix bug - when all_matching is empty, return empty DataFrame
+    if not all_matchings:
+        all_matchings = pd.DataFrame()
+    else:
+        all_matchings = pd.concat(all_matchings)
+        all_matchings = all_matchings[['grt_arg_text', 'sys_arg_text',
+                                       'grt_role', 'sys_role',
+                                       'grt_arg', 'sys_arg',
+                                       'qasrl_id', 'verb_idx']]
 
-    return sys_to_grt
+    return arg_metrics, labeled_arg_metrics, role_metrics, is_nom_counts, all_matchings
 
 
-def evaluate(sys_response: Response,
-             grt_response: Response,
-             allow_overlaps: bool):
-    # TODO
-    # if not allow_overlaps:
-    #     sys_roles = ensure_no_overlaps(sys_roles)
+def eval_datasets_arg_f1(sys_df, grt_df) -> float:
+    arg_metrics = eval_datasets(sys_df, grt_df)[0]
+    return arg_metrics.f1()
+
+
+def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Generator[Tuple[Tuple[str,int],Response,Response], None, None]:
+    grt_predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    sys_predicate_ids = sys_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    # Include only those predicates which are both in grt and in sys
+    predicate_ids = pd.merge(grt_predicate_ids, sys_predicate_ids, how='inner')
+    for idx, row in predicate_ids.iterrows():
+        sys_qa_pairs = sys_df[filter_ids(sys_df, row)].copy()
+        grt_qa_pairs = grt_df[filter_ids(grt_df, row)].copy()
+        sys_response = decode_response(sys_qa_pairs)
+        grt_response = decode_response(grt_qa_pairs)
+        yield (row.qasrl_id, row.verb_idx), sys_response, grt_response
+
+
+def evaluate_response(sys_response: Response,
+                      grt_response: Response):
     sys_roles: List[Role] = sys_response.roles
     grt_roles: List[Role] = grt_response.roles
     sys_to_grt = find_matches(sys_response.all_args(), grt_response.all_args())
@@ -276,40 +164,6 @@ def count_labeled_arg_matches(grt_roles: List[Role], sys_roles: List[Role], sys_
                for arg_match in sys_to_grt.items()
                if is_labeled_arg_match(*arg_match))
 
-class RoleAlignment:
-
-    def __init__(self, grt_roles: List[Role], sys_roles: List[Role]):
-        self.grt_roles = grt_roles
-        self.sys_roles = sys_roles
-        self.sys_to_grt = {role: set() for role in sys_roles}
-        self.grt_to_sys = {role: set() for role in grt_roles}
-
-    def add_alignment(self, grt_role: Role, sys_role: Role):
-        self.sys_to_grt[sys_role].add(grt_role)
-        self.grt_to_sys[grt_role].add(sys_role)
-
-    def has_single_alignment(self, role: Role, is_grt: bool):
-        role_dict = self.grt_to_sys if is_grt else self.sys_to_grt
-        n_aligned = len(role_dict[role])
-        return n_aligned == 1
-
-
-def find_role(arg: Argument, roles: List[Role]) -> Role:
-    return next(role for role in roles if arg in role.arguments)
-
-
-def align_by_argument(grt_roles: List[Role], sys_roles: List[Role],
-                      sys_to_grt: Dict[Argument, Argument]) -> RoleAlignment:
-    alignment = RoleAlignment(grt_roles, sys_roles)
-    for sys_role in sys_roles:
-        for sys_arg in sys_role.arguments:
-            grt_arg = sys_to_grt.get(sys_arg)
-            if not grt_arg:
-                continue
-            grt_role = find_role(grt_arg, grt_roles)
-            alignment.add_alignment(grt_role, sys_role)
-    return alignment
-
 
 def eval_roles(grt_roles: List[Role],
                sys_roles: List[Role],
@@ -325,3 +179,36 @@ def eval_roles(grt_roles: List[Role],
         if not alignemnt.has_single_alignment(sys_role, is_grt=False):
             fp += 1
     return Metrics(tp, fp, fn)
+
+
+def print_system_evaluation(system_df: pd.DataFrame, ground_truth_df: pd.DataFrame):
+    arg, larg, role, isnom, _ = eval_datasets(system_df, ground_truth_df)
+
+    print(f"arg-f1 \t {arg.f1():.4f}")
+    print(f"labeled-arg-f1 \t {larg.f1():.4f}")
+    print(f"role-f1 \t {role.f1():.4f}")
+    print(f"is-verbal (precision/recall/F1): ", isnom.prec(), isnom.recall(), isnom.f1())
+    print(f"is-verbal (accuracy): \t {isnom.accuracy():.4f}    for {isnom.instances()} pairwise comparisons.")
+
+
+
+def main(proposed_path: str, reference_path: str, sentences_path: str):
+    if sentences_path:
+        sent_df = read_csv(sentences_path)
+        sent_map = dict(zip(sent_df.qasrl_id, sent_df.tokens.apply(str.split)))
+    else:
+        sent_map = None
+
+    sys_df = read_annot_csv(proposed_path)
+    grt_df = read_annot_csv(reference_path)
+    print_system_evaluation(sys_df, grt_df)
+
+
+if __name__ == "__main__":
+    ap = ArgumentParser()
+    ap.add_argument("sys_path")
+    ap.add_argument("ground_truth_path")
+    ap.add_argument("sentences_path", default=None)
+    args = ap.parse_args()
+    main(args.sys_path, args.ground_truth_path, args.sentences_path)
+

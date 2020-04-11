@@ -23,8 +23,9 @@ def concatCsvs(csv_fn_list: List[str], output_fn: str, columns: List[str] = None
     # `columns` can determine subset (and order) of output columns
     if columns:
         concatenated_df = concatenated_df[columns]
-    concatenated_df.to_csv(output_fn, index=False)
-    print("output DataFrame shape: ", concatenated_df.shape)
+    concatenated_df.to_csv(output_fn, index=False, encoding="utf-8")
+    print(f"exported DataFrame with shape {concatenated_df.shape} to {output_fn}")
+    return concatenated_df
 
 
 def asRelative(distribution : Union[List, Dict]):

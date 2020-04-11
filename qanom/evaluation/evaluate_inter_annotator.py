@@ -8,8 +8,8 @@ import pandas as pd
 from annotations.common import read_annot_csv, set_key_column, get_sent_map, \
     get_n_predicates, get_n_positive_predicates, get_n_assignments, filter_questions
 from annotations.decode_encode_answers import decode_qasrl
-from evaluation.argument_first_evaluation import eval_datasets
-from evaluation.evaluate import Metrics, BinaryClassificationMetrics
+from evaluation.evaluate import eval_datasets
+from evaluation.metrics import Metrics, BinaryClassificationMetrics
 
 
 # describe statistics of the saved annotated data
@@ -66,7 +66,6 @@ def describe_worker_work(annot_df: pd.DataFrame):
 
 def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
     cols = ['qasrl_id', 'verb_idx']
-    sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
     workers = annot_df.worker_id.unique().tolist()
     n_workers = len(workers)
     n_predicates = get_n_predicates(annot_df)
@@ -81,7 +80,7 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
         w1_df = annot_df[annot_df.worker_id == w1].copy()
         w2_df = annot_df[annot_df.worker_id == w2].copy()
         # compute 1:1 agreements
-        arg_metrics, larg_metrics, role_metrics, nom_ident_metrics, matching_args = eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
+        arg_metrics, larg_metrics, role_metrics, nom_ident_metrics, matching_args = eval_datasets(w1_df, w2_df)
         #matching_args['key'] = matching_args.apply(lambda r: r['qasrl_id']+"_"+str(r['verb_idx']), axis=1)
         # Arg-Accuracy: metric is f1, weight is number of predicted arguments
         arg_agreements[w1].append(arg_metrics)
@@ -113,9 +112,8 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
 
 
 
-def evaluate_inter_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False):
+def evaluate_inter_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False) -> float:
     cols = ['qasrl_id', 'verb_idx']
-    sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
     n_gen = annot_df.groupby(cols).worker_id.transform(pd.Series.nunique)
     workers = annot_df.worker_id.unique().tolist()
     n_workers = len(workers)
@@ -133,11 +131,13 @@ def evaluate_inter_generator_agreement(annot_df: pd.DataFrame, verbose: bool = F
     for w1, w2 in combinations(workers, r=2):
         w1_df = annot_df[annot_df.worker_id == w1].copy()
         w2_df = annot_df[annot_df.worker_id == w2].copy()
+        # compute agreement measures
         arg_metrics, labeled_arg_metrics, role_metrics, nom_ident_metrics, _ = \
-            eval_datasets(w1_df, w2_df, sent_map, allow_overlaps=False)
+            eval_datasets(w1_df, w2_df)
         if verbose:
             print(f"\nComparing  {w1}   to   {w2}:   [p,r,f1]")
-            print(f"Number of shared predicates: {get_n_predicates(pd.merge(w1_df, w2_df, on=cols))}")
+            merged_df = pd.merge(w1_df, w2_df, on='key')
+            print(f"Number of shared predicates: {get_n_predicates(merged_df)}")
             print(f"ARG:\t{arg_metrics}")
             print(f"Labeled ARG:\t{labeled_arg_metrics}")
             print(f"ROLE:\t{role_metrics}")
