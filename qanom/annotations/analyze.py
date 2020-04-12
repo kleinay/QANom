@@ -5,6 +5,8 @@ import pandas as pd
 
 import annotations.common
 import evaluation.evaluate_inter_annotator as eia
+from annotations.common import get_n_assignments, get_n_predicates, get_n_positive_predicates, filter_questions, \
+    get_n_QAs
 from qanom import utils
 
 
@@ -70,3 +72,21 @@ def analyze_by_wh_group(annot_df: pd.DataFrame,
     annot_df[grouping_column]=annot_df.wh.apply(wh2groupName.get)
     return analyze_by_column_value(annot_df, column=grouping_column, analysis_func=analysis_func)
 
+
+def print_annot_statistics(annot_df: pd.DataFrame):
+    n_assignments = get_n_assignments(annot_df)
+    n_predicates = get_n_predicates(annot_df)
+    n_positive_predicates = get_n_positive_predicates(annot_df)
+    n_qas = get_n_QAs(annot_df)
+    annot_with_questions_df = filter_questions(annot_df)
+    roleDist = Counter(annot_with_questions_df.groupby(['key','worker_id']).agg(pd.Series.count)['question'])
+    sum_roles = sum(k * v for k, v in roleDist.items())
+    num_roles_average = sum_roles / float(n_assignments)
+    num_positive_wo_qas = roleDist[0]
+    print(f'#-predicates: {n_predicates}')
+    print(f'#-positive-predicates: {n_positive_predicates} (%{100*n_positive_predicates/float(n_predicates):.1f})')
+    print(f'#-QAs (total): {n_qas}')
+    print(f'#-Roles per predicate Distribution: {roleDist}')
+    print(f'#-Roles average (for positive predicates): {num_roles_average:.2f}')
+    print(f'#-positive predicates with NO role: {num_positive_wo_qas}'
+          f'  ({num_positive_wo_qas/float(n_positive_predicates):.2f}% of positives)')

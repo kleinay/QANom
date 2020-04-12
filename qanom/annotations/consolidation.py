@@ -4,11 +4,10 @@ from typing import *
 
 import annotations.common
 import annotations.decode_encode_answers
-import utils
 from annotations.common import *
 from annotations.decode_encode_answers \
     import Argument, Role, Response, encode_response, arg_length
-from evaluation.evaluate import iou
+from evaluation.metrics import iou
 
 FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb',
                  'worker_id', 'assign_id',
@@ -58,7 +57,7 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_aligned_roles(resp1: Response, resp2: Response) -> List[Role]:
     # take only aligned arguments along with their full Role (=QA)
-    from evaluation.evaluate import find_matches
+    from evaluation.alignment import find_matches
     alignment: Dict[Argument, Argument] = find_matches(resp1.all_args(), resp2.all_args())
 
     # Helper func:

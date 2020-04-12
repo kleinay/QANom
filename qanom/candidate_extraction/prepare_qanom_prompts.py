@@ -51,6 +51,8 @@ ent" -port 9000 -timeout 30000
 """
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
 
+COMMON_NOUNS_POS = ["NN", "NNS"]
+
 
 # load data from corpus
 def get_sentences_from_csv(csv_fn):
@@ -86,10 +88,9 @@ def tokenize_and_pos_tag(sentence):
 def get_common_nouns(posTaggedSent: List[Tuple[str, str]]):
     """
     Filter and retrieve common-nouns from the sentence (to be candidates for nominaliation)
-    :param posTaggedSent: unicode string
+    :param posTaggedSent: [ (token1, pos1), ...]
     :return: list of (index, token) tuples
     """
-    COMMON_NOUNS_POS = ["NN", "NNS"]
     nouns = []
     for index, (token, pos) in enumerate(posTaggedSent):
         if pos in COMMON_NOUNS_POS:
@@ -118,6 +119,11 @@ def get_verb_forms_from_lexical_resources(nn,
         return vrbs, True
     else:
         return [nn], False
+
+
+def is_candidate_noun(nn: str, **resources) -> bool:
+    # does it have candidate verb-forms?
+    return get_verb_forms_from_lexical_resources(nn, **resources)[1]
 
 
 def filter_distant_verb_forms(verb_form, noun):

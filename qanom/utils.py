@@ -1,5 +1,6 @@
+import json
 from collections import defaultdict
-from typing import Dict, List, Iterable, Union, NoReturn
+from typing import Dict, List, Iterable, Union, NoReturn, Any
 
 import pandas as pd
 
@@ -14,8 +15,8 @@ def count_empty_string(series: pd.Series) -> int:
     """ Return number of empty strings or NA in a Series """
     return is_empty_string_series(series).sum()
 
-def rename_column(df: pd.DataFrame, orig_label: str, new_label: str):
-    df.rename(mapper={orig_label:new_label}, axis=1, inplace=True)
+def rename_column(df: pd.DataFrame, orig_label: str, new_label: str, inplace=True):
+    return df.rename(mapper={orig_label:new_label}, axis=1, inplace=inplace)
 
 def concatCsvs(csv_fn_list: List[str], output_fn: str, columns: List[str] = None) -> NoReturn:
     inp_dfs = [pd.read_csv(fn) for fn in csv_fn_list]
@@ -65,6 +66,28 @@ def majority(lst: Iterable[bool], whenTie=True) -> bool:
         return whenTie
     else:
         return s > len(lst)/2.0
+
+# jsonl (json-lines) util
+
+class jsonl:
+    @classmethod
+    def dumps(cls, iterable: Iterable) -> str:
+        return "\n".join(json.dumps(obj) for obj in iterable)
+
+    @classmethod
+    def dump(cls, iterable: Iterable, fp):
+        s = jsonl.dumps(iterable)
+        fp.write(s)
+
+    @classmethod
+    def loads(cls, lines_str: str) -> List[Any]:
+        l = [json.loads(line) for line in lines_str.splitlines()]
+        return l
+
+    @classmethod
+    def load(cls, fp) -> List[Any]:
+        return jsonl.loads(fp.read())
+
 
 
 # list, dict and sets utils

@@ -4,9 +4,8 @@ from typing import List, Dict, Tuple, Generator
 import pandas as pd
 from tqdm import tqdm
 
-from annotations.common import read_annot_csv, read_csv, get_sent_map
-from annotations.decode_encode_answers import NO_RANGE, Argument, Role, Question, Response, \
-    decode_response
+from annotations.common import read_annot_csv, read_csv, get_sent_map, get_predicate_idx_label
+from annotations.decode_encode_answers import NO_RANGE, Argument, Role, Question, Response, decode_response
 from evaluation.alignment import find_matches, align_by_argument
 from evaluation.metrics import Metrics, BinaryClassificationMetrics
 
@@ -33,7 +32,8 @@ def build_all_qa_pairs(sys_roles: List[Role],
 
 
 def filter_ids(df, row):
-    return (df.qasrl_id == row.qasrl_id) & (df.verb_idx == row.verb_idx)
+    idx_lbl = get_predicate_idx_label(df)
+    return (df.qasrl_id == row.qasrl_id) & (df[idx_lbl] == row[idx_lbl])
 
 
 def fill_answer(arg: Argument, tokens: List[str]):
@@ -45,7 +45,7 @@ def fill_answer(arg: Argument, tokens: List[str]):
 def eval_datasets(sys_df, grt_df, sent_map= None) \
         -> Tuple[Metrics, Metrics, Metrics, BinaryClassificationMetrics, pd.DataFrame]:
     if not sent_map:
-        annot_df = pd.merge(sys_df[['qasrl_id', 'sentence']], grt_df[['qasrl_id', 'sentence']])
+        annot_df = pd.concat([sys_df[['qasrl_id', 'sentence']], grt_df[['qasrl_id', 'sentence']]])
         sent_map = get_sent_map(annot_df)
     arg_metrics = Metrics.empty()
     labeled_arg_metrics = Metrics.empty()
@@ -80,6 +80,22 @@ def eval_datasets(sys_df, grt_df, sent_map= None) \
 
     return arg_metrics, labeled_arg_metrics, role_metrics, is_nom_counts, all_matchings
 
+
+def get_recall_and_precision_mistakes(sys_df, grt_df) -> (pd.DataFrame, pd.DataFrame):
+    """ Return dfs of recall and precision mistakes. """
+    all_matchings: pd.DataFrame = eval_datasets(sys_df, grt_df)[-1]
+    # take all recall errors - roles which are NA in sys_roles in the alignment
+    recall_mistakes = all_matchings[all_matchings['sys_role'].isna()]
+    recall_mistakes['question'] = recall_mistakes['grt_role'].apply(lambda role: role.text)
+    # take all precision errors - roles which are NA in grt_roles in the alignment
+    precision_mistakes = all_matchings[all_matchings['grt_role'].isna()]
+    precision_mistakes['question'] = precision_mistakes['sys_role'].apply(lambda role: role.text)
+    # now produce the subsets from original DataFrames
+    cols = ['qasrl_id', 'verb_idx', 'question']
+    recall_mistakes_df: pd.DataFrame = grt_df.merge(recall_mistakes[cols], on=cols, how="inner").drop_duplicates(cols)
+    precision_mistakes_df: pd.DataFrame = sys_df.merge(precision_mistakes[cols], on=cols, how="inner").drop_duplicates(cols)
+
+    return recall_mistakes_df, precision_mistakes_df
 
 def eval_datasets_arg_f1(sys_df, grt_df) -> float:
     arg_metrics = eval_datasets(sys_df, grt_df)[0]
@@ -184,10 +200,20 @@ def eval_roles(grt_roles: List[Role],
 def print_system_evaluation(system_df: pd.DataFrame, ground_truth_df: pd.DataFrame):
     arg, larg, role, isnom, _ = eval_datasets(system_df, ground_truth_df)
 
-    print(f"arg-f1 \t {arg.f1():.4f}")
-    print(f"labeled-arg-f1 \t {larg.f1():.4f}")
-    print(f"role-f1 \t {role.f1():.4f}")
-    print(f"is-verbal (precision/recall/F1): ", isnom.prec(), isnom.recall(), isnom.f1())
+    from qanom.annotations.analyze import print_annot_statistics
+    print("System prediction statistics:")
+    print_annot_statistics(system_df)
+    print("**************************")
+
+    print("Ground Truth statistics:")
+    print_annot_statistics(system_df)
+    print("**************************")
+
+    print("\n\t\t\t\tPrecision\tRecall\tF1")
+    print(f"arg-f1 \t\t\t {arg.prec():.2f}\t{arg.recall():.2f}\t{arg.f1():.4f}")
+    print(f"labeled-arg-f1 \t {larg.prec():.2f}\t{larg.recall():.2f}\t{larg.f1():.4f}")
+    print(f"role-f1 \t\t {role.prec():.2f}\t{role.recall():.2f}\t{role.f1():.4f}")
+    print(f"is-verbal \t\t {isnom.prec():.2f}\t{isnom.recall():.2f}\t{isnom.f1():.4f}")
     print(f"is-verbal (accuracy): \t {isnom.accuracy():.4f}    for {isnom.instances()} pairwise comparisons.")
 
 

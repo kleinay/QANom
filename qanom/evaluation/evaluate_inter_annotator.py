@@ -1,12 +1,11 @@
 from argparse import ArgumentParser
-from collections import defaultdict, Counter
+from collections import defaultdict
 from itertools import combinations, permutations
-from typing import List, Dict, Any
+from typing import Dict, Any
 
 import pandas as pd
 
-from annotations.common import read_annot_csv, set_key_column, get_sent_map, \
-    get_n_predicates, get_n_positive_predicates, get_n_assignments, filter_questions
+from annotations.common import read_annot_csv, set_key_column, get_n_predicates, get_predicate_idx_label
 from annotations.decode_encode_answers import decode_qasrl
 from evaluation.evaluate import eval_datasets
 from evaluation.metrics import Metrics, BinaryClassificationMetrics
@@ -29,25 +28,10 @@ def get_worker_statistics_from_file(anot_fn):
 
 """ Analysis functions"""
 
-def print_annot_statistics(annot_df: pd.DataFrame):
-    n_assignments = get_n_assignments(annot_df)
-    n_predicates = get_n_predicates(annot_df)
-    n_positive_predicates = get_n_positive_predicates(annot_df)
-    annot_with_questions_df = filter_questions(annot_df)
-    roleDist = Counter(annot_with_questions_df.groupby(['key','worker_id']).agg(pd.Series.count)['question'])
-    sum_roles = sum(k * v for k, v in roleDist.items())
-    num_roles_average = sum_roles / float(n_assignments)
-    num_positive_wo_qas = roleDist[0]
-    print(f'#-predicates: {n_predicates}')
-    print(f'#-Roles per predicate Distribution: {roleDist}')
-    print(f'#-Roles average (for positive predicates): {num_roles_average:.2f}')
-    print(f'#-positive predicates with NO role: {num_positive_wo_qas}'
-          f'  ({num_positive_wo_qas/float(n_positive_predicates):.2f}% of positives)')
-
 
 def describe_worker_work(annot_df: pd.DataFrame):
-    cols = ['qasrl_id', 'verb_idx']
-    sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
+    from annotations.analyze import print_annot_statistics
+
     workers = annot_df.worker_id.unique().tolist()
     agreement_stats = evaluate_per_worker_iaa(annot_df, isPrinting=False)
     general_worker_stats = get_worker_statistics(annot_df)
@@ -65,7 +49,6 @@ def describe_worker_work(annot_df: pd.DataFrame):
 
 
 def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
-    cols = ['qasrl_id', 'verb_idx']
     workers = annot_df.worker_id.unique().tolist()
     n_workers = len(workers)
     n_predicates = get_n_predicates(annot_df)
@@ -81,7 +64,6 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
         w2_df = annot_df[annot_df.worker_id == w2].copy()
         # compute 1:1 agreements
         arg_metrics, larg_metrics, role_metrics, nom_ident_metrics, matching_args = eval_datasets(w1_df, w2_df)
-        #matching_args['key'] = matching_args.apply(lambda r: r['qasrl_id']+"_"+str(r['verb_idx']), axis=1)
         # Arg-Accuracy: metric is f1, weight is number of predicted arguments
         arg_agreements[w1].append(arg_metrics)
         # Nominalization-Identification Accuracy: metric is accuracy, weight is number of (common) predicates
@@ -110,10 +92,8 @@ def evaluate_per_worker_iaa(annot_df: pd.DataFrame, isPrinting=True):
     return worker_general_statistics
 
 
-
-
 def evaluate_inter_generator_agreement(annot_df: pd.DataFrame, verbose: bool = False) -> float:
-    cols = ['qasrl_id', 'verb_idx']
+    cols = ['qasrl_id', get_predicate_idx_label(annot_df)]
     n_gen = annot_df.groupby(cols).worker_id.transform(pd.Series.nunique)
     workers = annot_df.worker_id.unique().tolist()
     n_workers = len(workers)

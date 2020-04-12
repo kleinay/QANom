@@ -39,7 +39,7 @@ def postprocess_annotation_files(orig_dir: str, dest_dir: str,
 def merge_csvs(csvs: List[str], dest: str) -> pd.DataFrame:
     import qanom.annotations.common as common
     dfs = [common.read_csv(csv_fn) for csv_fn in csvs]
-    merged_df = df=pd.concat(dfs, ignore_index=True, sort=False)
+    merged_df = pd.concat(dfs, ignore_index=True, sort=False)
     merged_df.to_csv(dest, index=False, encoding="utf-8")
     print(f"exported DataFrame with shape {merged_df.shape} to {dest}")
     return merged_df
@@ -89,12 +89,13 @@ def reannotate_corrected_verb_forms(annot_df: pd.DataFrame, output_json_fn) -> N
     :param annot_df: returned from find_invalid_prompts()
     :param output_json_fn: file name where to dump the JSON of the prompts for re-annotation
     """
-    annot_df.drop_duplicates(subset=["qasrl_id", "verb_idx"])
+    pred_idx_lbl = common.get_predicate_idx_label(annot_df)
+    annot_df.drop_duplicates(subset=["qasrl_id", pred_idx_lbl])
     invalidated_df = annot_df[annot_df["invalid_prompt"]]    # filter only invalidated prompts
     re_annot_df = invalidated_df[invalidated_df["corrected_verb_form"]!=""] # filter out predicates now with no verb form
     candidates = [{"sentenceId": row["qasrl_id"],
                    "tokSent" : row["sentence"].split(" "),
-                   "targetIdx": row["verb_idx"],
+                   "targetIdx": row[pred_idx_lbl],
                    "verbForms": [row["corrected_verb_form"]]}
                   for id, row in re_annot_df.iterrows()]
     json.dump(candidates, open(output_json_fn, "w"))
@@ -394,3 +395,48 @@ def generate_final_train_annotations() -> NoReturn:
         dest_fn = os.path.join(dest_path, fn)
         save_annot_csv(final_df, dest_fn)
 
+
+def merge_splits_into_final_large_files() -> NoReturn:
+    gold_final_dir = "files/annotations/gold_set/final"
+    train_final_dir = "files/annotations/train_set/final"
+
+    wikinews_dev_fns = ["annot.final.wikinews.dev.1-4.csv",
+                        "annot.final.wikinews.dev.5.csv"]
+    wikinews_test_fns = ["annot.final.wikinews.test.1.csv",
+                         "annot.final.wikinews.test.2.csv",
+                         "annot.final.wikinews.test.3-5.csv"]
+    wikipedia_test_fns = ["annot.final.wikipedia.test.1-5.csv"]
+    wikipedia_dev_fns = ["annot.final.wikipedia.dev.1.1.csv",
+                         "annot.final.wikipedia.dev.1.2-4.csv",
+                         "annot.final.wikipedia.dev.2.csv",
+                         "annot.final.wikipedia.dev.3-5.csv"]
+    # gold data
+    dir = gold_final_dir
+    def concatCsvsInFinalDir(csv_fn_list: List[str], output_fn: str) -> NoReturn:
+        csv_full_path_list = [os.path.join(dir, fn) for fn in csv_fn_list]
+        output_path = os.path.join(dir, output_fn)
+        utils.concatCsvs(csv_full_path_list, output_path)
+
+    concatCsvsInFinalDir(wikinews_dev_fns, "annot.final.wikinews.dev.csv")
+    concatCsvsInFinalDir(wikinews_test_fns, "annot.final.wikinews.test.csv")
+    concatCsvsInFinalDir(wikipedia_dev_fns, "annot.final.wikipedia.dev.csv")
+    concatCsvsInFinalDir(wikipedia_test_fns, "annot.final.wikipedia.test.csv")
+    concatCsvsInFinalDir(["annot.final.wikinews.dev.csv", "annot.final.wikipedia.dev.csv"],
+                         "annot.final.dev.csv")
+    concatCsvsInFinalDir(["annot.final.wikinews.test.csv", "annot.final.wikipedia.test.csv"],
+                         "annot.final.test.csv")
+
+    # train data
+    wikinews_train_fns = ["annot.wikinews.train.1.csv",
+                          "annot.wikinews.train.2.csv",
+                          "annot.wikinews.train.3.csv",
+                          "annot.wikinews.train.4.csv",]
+    wikipedia_train_fns = ["annot.wikipedia.train.1.csv",
+                          "annot.wikipedia.train.2.csv",
+                          "annot.wikipedia.train.3.csv",
+                          "annot.wikipedia.train.4.csv",]
+    dir = train_final_dir
+    concatCsvsInFinalDir(wikinews_train_fns, "annot.wikinews.train.csv")
+    concatCsvsInFinalDir(wikipedia_train_fns, "annot.wikipedia.train.csv")
+    concatCsvsInFinalDir(["annot.wikinews.train.csv", "annot.wikipedia.train.csv"],
+                         "annot.train.csv")
