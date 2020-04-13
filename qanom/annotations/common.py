@@ -143,6 +143,12 @@ def get_n_QAs(annot_df: pd.DataFrame) -> int:
     return annot_df.shape[0] - not_questions
 
 
+def get_n_args(annot_df: pd.DataFrame) -> int:
+    def count_non_empty(lst):
+        return sum(1 for a in lst if a)
+    return sum(annot_df.answer.apply(count_non_empty))
+
+
 def filter_questions(annot_df: pd.DataFrame) -> pd.DataFrame:
     """ Return subset of `annot_df` with rows that corresponds to a non-empty question """
     with_q = annot_df[~utils.is_empty_string_series(annot_df.question)]

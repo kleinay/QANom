@@ -6,7 +6,7 @@ import pandas as pd
 import annotations.common
 import evaluation.evaluate_inter_annotator as eia
 from annotations.common import get_n_assignments, get_n_predicates, get_n_positive_predicates, filter_questions, \
-    get_n_QAs
+    get_n_QAs, get_predicate_idx_label, get_n_args
 from qanom import utils
 
 
@@ -90,3 +90,23 @@ def print_annot_statistics(annot_df: pd.DataFrame):
     print(f'#-Roles average (for positive predicates): {num_roles_average:.2f}')
     print(f'#-positive predicates with NO role: {num_positive_wo_qas}'
           f'  ({num_positive_wo_qas/float(n_positive_predicates):.2f}% of positives)')
+
+
+def compute_num_self_cycles(annot_df: pd.DataFrame) -> int:
+    """ How many arguments in annot_df include the predicate within the answer span. """
+    counter = 0
+    idx_lbl = get_predicate_idx_label(annot_df)
+    for i,row in annot_df.iterrows():
+        answers = row.answer_range
+        pred_idx = row[idx_lbl]
+        for a in answers:
+            if pred_idx in range(a[0], a[1]):
+                counter += 1
+    return counter
+
+
+def compute_num_self_cycles_percentage(annot_df: pd.DataFrame) -> float:
+    """ Num of predicate-including args / num-args"""
+    n_self_loops = compute_num_self_cycles(annot_df)
+    n_args = get_n_args(annot_df)
+    return float(n_self_loops) / n_args

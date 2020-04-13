@@ -173,16 +173,20 @@ def encode_qasrl(qasrl_df) -> pd.DataFrame:
     return for_csv
 
 
-def encode_response(response: Response, sentence: str) -> pd.DataFrame:
-    # should return a dataFrame capturing the annotations in Response.
-    # of course, this df will only include annotation-columns and not (other) data- or metadata- columns.
-    common_for_rows = {'is_verbal' : response.is_verbal, 'verb_form': response.verb_form}
+def encode_response(response: Response, sentence_str: str, **kwargs) -> pd.DataFrame:
+    """
+    should return a dataFrame capturing the annotations in Response.
+    of course, this df will only include annotation-columns and not (other) data- or metadata- columns.
+    kwargs can be used to insert other information to the columns of the output dataframe - these key:value
+    pairs will be part of the information that is the same in all the rows of this response (e.g. verb_idx).
+    """
+    common_for_rows = dict({'is_verbal' : response.is_verbal, 'verb_form': response.verb_form}, **kwargs)
     def role2rowDict(role: Role) -> dict:
         questionDict = asdict(role.question)
         questionDict['question'] = questionDict.pop('text')
         qaDict = dict(questionDict,
                       answer_range=encode_argument(role.arguments),
-                      answer=encode_argument_text_from_spans(role.arguments, sentence.split(" ")))
+                      answer=encode_argument_text_from_spans(role.arguments, sentence_str.split(" ")))
         rowDict = dict(qaDict, **common_for_rows)
         return rowDict
 

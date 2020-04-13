@@ -46,8 +46,7 @@ vtn = VTN()
 """
 To run the CoreNLPParser on your machine (port 9000), pre-run the following command from the unzipped directory of the 
 stanford-core-nlp project (see https://www.khalidalnajjar.com/setup-use-stanford-corenlp-server-python/ for instructions): 
-    java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -annotators "tokenize,ssplit,pos,lemma,parse,sentim
-ent" -port 9000 -timeout 30000
+    java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -annotators "tokenize,ssplit,pos,lemma,parse,sentiment" -port 9000 -timeout 30000
 """
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
 

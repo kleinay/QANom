@@ -29,6 +29,11 @@ def concatCsvs(csv_fn_list: List[str], output_fn: str, columns: List[str] = None
     return concatenated_df
 
 
+def df_to_dict(df: pd.DataFrame, key_column: str, value_column: str) -> Dict[Any, Any]:
+    """ Return a dict compiled from two columns in a DataFrame. """
+    return dict(zip(df[key_column], df[value_column]))
+
+
 def asRelative(distribution : Union[List, Dict]):
     # get a list\dict of numbers (a distribution), return the relative distribution (element/sum)
     if 'values' in dir(distribution):
