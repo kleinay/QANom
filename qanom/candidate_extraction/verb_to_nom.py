@@ -2,13 +2,13 @@ import pattern3.en as pattern
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
 
-import utils
+from qanom import utils
 
 # lists of verbs
 # from pattern - 8.5K
 """
-Currently pattern3.en have bugs in this verbs.infinitives class.
-Don't use their verb seed. 
+pattern3.en have bugs in this verbs.infinitives class.
+In the annotation pipeline, we didn't use their verb seed. 
 
 commented out: all_pattern_verbs = list(pattern.verbs.infinitives)
 """

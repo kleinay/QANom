@@ -1,9 +1,22 @@
 import json
 from collections import defaultdict
-from typing import Dict, List, Iterable, Union, NoReturn, Any
+from typing import Dict, List, Iterable, Union, NoReturn, Tuple, Any
 
 import pandas as pd
 
+
+def almost_same(str1: str, str2: str) -> bool:
+    from fuzzywuzzy import fuzz
+    return fuzz.ratio(str1, str2)>90
+
+def split_str_twice(string: str, del1: str, del2: str) -> Tuple[str, str, str]:
+    """ Return a 3-element tuple by applying two splits on a str using two different delimiters.
+        only regard the first occurrence of each delimiter.
+      E.g.  split_str_twice("an_email@gmail.com", "_", "@") -> ("an", "email", "gmail.com")
+      """
+    first, second_and_third = string.split(del1,1)
+    second, third = second_and_third.split(del2,1)
+    return first, second, third
 
 def is_empty_string_series(series: pd.Series) -> pd.Series:
     """ Return boolean Series capturing whether `series` is empty string or NA """
@@ -150,5 +163,26 @@ def static_variables(**kwargs):
     def decorate(func):
         for k in kwargs:
             setattr(func, k, kwargs[k])
+        return func
+    return decorate
+
+
+def lazy_static_variables(**kwargs):
+    """ A decorator for creating static local variables for a function with lazy initialization,
+    i.e., variables are defined and initialized only
+    Usage Example:
+
+    @static_variables(counter=0, large_list=load_large_list())
+    def foo():
+        foo.counter += 1    # now 'counter' and 'large_list' are properties of the method,
+                            #  and are initialized only once, in the decorator line.
+        print "Counter is %d" % foo.counter
+        print foo.large_list[foo.counter]
+
+    """
+    def decorate(func):
+        print("decorator")
+        for k in kwargs:
+            setattr(func, k, kwargs[k]())
         return func
     return decorate

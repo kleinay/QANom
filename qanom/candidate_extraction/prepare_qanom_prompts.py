@@ -24,17 +24,19 @@ import json
 import os
 import sys
 
+
 # add project basic directory to sys.path, in order to refer qanom as a package from anywhere
 project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(project_dir)
 
-from typing import *
+from typing import List, Tuple, Iterable, Dict, Any, Literal
 
 from nltk.parse import CoreNLPParser
+import pandas as pd
 
-from candidate_extraction import wordnet_util, catvar as catvar_util
-from annotations.common import read_csv
-from candidate_extraction.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
+from qanom.candidate_extraction import wordnet_util, catvar as catvar_util
+from qanom.annotations.common import read_csv
+from qanom.candidate_extraction.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
 
 """ Define which resources should be used (by default) for filtering nouns as candidate nominalizations. """
 resources = {"wordnet": True,
@@ -49,6 +51,14 @@ stanford-core-nlp project (see https://www.khalidalnajjar.com/setup-use-stanford
     java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -annotators "tokenize,ssplit,pos,lemma,parse,sentiment" -port 9000 -timeout 30000
 """
 pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
+pos_tag = pos_tagger.tag
+
+"""
+Alternatively- use nltk's default pos_tagger ('averaged_perceptron_tagger'):
+
+nltk.download('averaged_perceptron_tagger')
+pos_tag = nltk.pos_tag
+"""
 
 COMMON_NOUNS_POS = ["NN", "NNS"]
 
@@ -57,11 +67,11 @@ COMMON_NOUNS_POS = ["NN", "NNS"]
 def get_sentences_from_csv(csv_fn):
     """
     Load raw data (sentence with sentence-id) from simple csv format
-    :param csv_fn: file name for the simple raw_data file (sentenceId, tokens, sentence)
+    :param csv_fn: file name for the simple raw_data file (sentenceId, sentence)
     :return: dict {sentenceId : sentence}
     """
     df = read_csv(csv_fn)
-    possible_labels_for_sent_id = {'sentenceId', 'qasrl_id'}
+    possible_labels_for_sent_id = {'sentenceId', 'sentence_id', 'qasrl_id'}
     sent_id_label = list(possible_labels_for_sent_id & set(df.columns))[0]
     df = df.set_index(sent_id_label)
     records = df[['sentence']].to_records()
@@ -78,7 +88,7 @@ def tokenize_and_pos_tag(sentence):
      tok is [ tok for each token in sentence ]
      returning (tok, pos)
     """
-    pos_tagged = list(pos_tagger.tag(sentence.split(" ")))
+    pos_tagged = list(pos_tag(sentence.split(" ")))
     tokenized = [e[0] for e in pos_tagged]
     return tokenized, pos_tagged
 
@@ -97,12 +107,13 @@ def get_common_nouns(posTaggedSent: List[Tuple[str, str]]):
     return nouns
 
 
-# verbalize using both WordNet, CatVar and our in-house suffix-based heuristic (=VTN: Verb To possible Nominalizations)
+# verbalize using both WordNet, CatVar and our in-house suffix-based
+# heuristic (=VTN: Verb To possible Nominalizations; implementation at `verb_to_nom.py`)
 def get_verb_forms_from_lexical_resources(nn,
                                           wordnet=True,
                                           catvar=True,
                                           affixes_heuristic=True,
-                                          filter_distant=False):
+                                          filter_distant=False) -> Tuple[List[str], bool]:
     wordnet_verbs = wordnet_util.convert_pos_by_lemmas(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB) \
         if wordnet else []
     # apply distant-verbs filtering on wordnet verbs
@@ -121,7 +132,7 @@ def get_verb_forms_from_lexical_resources(nn,
 
 
 def is_candidate_noun(nn: str, **resources) -> bool:
-    # does it have candidate verb-forms?
+    # does it have candidate (morphologically related) verb-forms?
     return get_verb_forms_from_lexical_resources(nn, **resources)[1]
 
 
@@ -139,13 +150,47 @@ def filter_distant_verb_forms(verb_form, noun):
     else:
         return True
 
+"""
+Different functions for different input formats of sentences.
+"""
+def get_candidate_nouns_from_allennlp_jsonl(sentences_josnl_fn: str, **resources) -> List[Dict[str, Any]]:
+    """
+    @:param sentences_josnl_fn: a file name of JSON-lines of input sentences, as allennlp predictors input format:
+        {"sentence": <actual sentence string> }
+        {"sentence": <actual sentence string> }
+        ...
+    Returns: list of candidate_info (dict). Generated a unique sentence_id for the sentences (by index).
+    """
+    with open(sentences_josnl_fn) as f:
+        sentences = []
+        for line in f.readlines():
+            sentences.append(json.loads(line)["sentence"])
+    return get_candidate_nouns_from_raw_sentences(sentences, **resources)
 
-def get_candidate_nouns_from_raw_csv(csv_fn, **resources):
+
+def get_candidate_nouns_from_raw_sentences(sentences: Iterable[str], **resources) -> List[Dict[str, Any]]:
+    """
+    @:param sentences: iterable of raw sentences
+    Returns: list of candidate_info (dict). Generated a unique sentence_id for the sentences (by index).
+    """
+    sentences_dict: Dict[str, str] = {f"Sentence-{1+i:04}": sent for i, sent in enumerate(sentences)}
+    return get_candidate_nouns(sentences_dict, **resources)
+
+
+def get_candidate_nouns_from_raw_csv(csv_fn, **resources) -> List[Dict[str, Any]]:
     """
     @:param csv_fn: csv file containing raw sentences
     Returns: list of candidate_info (dict)
     """
-    sentences = get_sentences_from_csv(csv_fn)
+    sentences: Dict[str, str] = get_sentences_from_csv(csv_fn)
+    return get_candidate_nouns(sentences, **resources)
+
+# the "core" function of extracting candidates from sentences
+def get_candidate_nouns(sentences: Dict[str, str], **resources) -> List[Dict[str, Any]]:
+    """
+    @:param sentences: {sentence_id : sentence_string}
+    Returns: list of candidate_info (dict)
+    """
     all_candidates = []
     for sid, sentence in sentences.items():
         # POS-tagging and tokenize are dependant, so doing both together
@@ -161,6 +206,40 @@ def get_candidate_nouns_from_raw_csv(csv_fn, **resources):
 
                 all_candidates.append(candidate_info)
     return all_candidates
+
+
+def export_candidate_info_to_csv(candidates_info: List[Dict[str, Any]], csv_out_fn: str = None) -> pd.DataFrame:
+    """
+    Export the noun-candidates info (returned by `get_candidate_nouns`) into a QANom-csv format,
+     with columns: 'qasrl_id', 'sentence', 'target_idx', 'noun'.
+    It is useful when you want to use a candidate extraction heuristic as a pre-processing for QANom model
+    that was trained on QANom data (which is in qanom csv format).
+
+    :param candidates_info: see output of `get_candidate_nouns`
+    :param csv_out_fn: [optional] a file name to write the csv into.
+    :return: a DataFrame of the produced CSV
+    """
+    df = pd.DataFrame(candidates_info)
+    # now modify the dataFrame to match qanom annotation format
+    df['sentence'] = df.apply(lambda r: ' '.join(r['tokSent']), axis=1)
+    df['noun'] = df.apply(lambda r: r['tokSent'][int(r['targetIdx'])], axis=1)
+    df = df.drop(['tokSent', 'verbForms'], axis='columns')
+    df = df.rename(mapper={'targetIdx': 'target_idx',
+                           'sentenceId': 'qasrl_id'},
+                   axis='columns')
+    if csv_out_fn:
+        df.to_csv(csv_out_fn, index=False)
+    return df
+
+
+def extract_candidate_nouns_to_csv(input: Any, csv_out_fn: str,
+                                   input_format: Literal["iterable", "dict", "csv", "jsonl"]):
+    candidate_info_funcs = {"iterable": get_candidate_nouns_from_raw_sentences,
+                            "dict": get_candidate_nouns,
+                            "csv": get_candidate_nouns_from_raw_csv,
+                            "jsonl": get_candidate_nouns_from_allennlp_jsonl}
+    candidates_info = candidate_info_funcs[input_format](input)
+    export_candidate_info_to_csv(candidates_info, csv_out_fn)
 
 
 if __name__ == "__main__":
