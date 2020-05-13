@@ -1,8 +1,8 @@
 from itertools import product
 from typing import List, Dict
 
-from annotations.decode_encode_answers import Argument, Role
-from evaluation.metrics import iou, MATCH_IOU_THRESHOLD
+from qanom.annotations.decode_encode_answers import Argument, Role
+from qanom.evaluation.metrics import iou, MATCH_IOU_THRESHOLD
 
 
 def find_matches(sys_args: List[Argument], grt_args: List[Argument]) -> Dict[Argument, Argument]:

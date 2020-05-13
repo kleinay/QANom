@@ -4,7 +4,7 @@ from typing import List
 
 import numpy as np
 
-from annotations.decode_encode_answers import Argument, Role
+from qanom.annotations.decode_encode_answers import Argument, Role
 
 MATCH_IOU_THRESHOLD = 0.3
 

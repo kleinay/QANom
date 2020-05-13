@@ -5,10 +5,10 @@ from typing import Dict, Any
 
 import pandas as pd
 
-from annotations.common import read_annot_csv, set_key_column, get_n_predicates, get_predicate_idx_label
-from annotations.decode_encode_answers import decode_qasrl
-from evaluation.evaluate import eval_datasets
-from evaluation.metrics import Metrics, BinaryClassificationMetrics
+from qanom.annotations.common import read_annot_csv, set_key_column, get_n_predicates, get_predicate_idx_label
+from qanom.annotations.decode_encode_answers import decode_qasrl
+from qanom.evaluation.evaluate import eval_datasets
+from qanom.evaluation.metrics import Metrics, BinaryClassificationMetrics
 
 
 # describe statistics of the saved annotated data

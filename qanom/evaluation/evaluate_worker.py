@@ -3,8 +3,8 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
-from annotations.common import read_annot_csv, read_csv
-from evaluation.evaluate import eval_datasets
+from qanom.annotations.common import read_annot_csv, read_csv
+from qanom.evaluation.evaluate import eval_datasets
 
 
 def parse_args():

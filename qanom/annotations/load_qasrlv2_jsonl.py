@@ -1,12 +1,13 @@
 import json
 import os
-import pandas as pd
 from typing import Dict, Any, NoReturn, List
+
+import pandas as pd
 
 JSON_OBJ = Dict[str, Any]
 
-from annotations.common import save_annot_csv
-from annotations.decode_encode_answers import decode_qasrl
+from qanom.annotations.common import save_annot_csv
+from qanom.annotations.decode_encode_answers import decode_qasrl
 
 
 def jsonl_file_to_csv(qasrl_v2_fn: str, dest_dir: str) -> NoReturn:
@@ -42,7 +43,7 @@ def sentence_json_to_df(qasrlv2: JSON_OBJ) -> pd.DataFrame:
             qDict : JSON_OBJ = qEntry['questionSlots']
             replce_underscore = lambda s: "" if s=="_" else s
             qDict = {k:replce_underscore(v) for k,v in qDict.items()}
-            qDict.pop('verb')
+            qDict["verb_slot_inflection"] = qDict.pop('verb')
             qDict.update(is_negated=qEntry['isNegated'],
                          is_passive=qEntry['isPassive'],
                          text=qEntry['questionString'],

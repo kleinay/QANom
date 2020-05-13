@@ -2,12 +2,13 @@
  (typically two) into a final, non-redundant annotation. """
 from typing import *
 
-import annotations.common
-import annotations.decode_encode_answers
-from annotations.common import *
-from annotations.decode_encode_answers \
+import pandas as pd
+
+from qanom import utils
+from qanom.annotations import common, decode_encode_answers
+from qanom.annotations.decode_encode_answers \
     import Argument, Role, Response, encode_response, arg_length
-from evaluation.metrics import iou
+from qanom.evaluation.metrics import iou
 
 FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb',
                  'worker_id', 'assign_id',
@@ -35,7 +36,7 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
         (Except from 'answer' which requires both answer_range from Response and sentence.) """
     pred_dfs: List[pd.DataFrame] = []
     for key, pred_df in df.groupby('key'):
-        responses = {worker: annotations.decode_encode_answers.decode_response(worker_df)
+        responses = {worker: decode_encode_answers.decode_response(worker_df)
                      for worker, worker_df in pred_df.groupby('worker_id')}
         if len(responses)<2:
             # only one generator for predicate
@@ -154,7 +155,7 @@ def auto_consolidation_iaa_experiment(dup_annot_df: pd.DataFrame) -> float:
     df = only4w
     df['n_workers'] = df.groupby('key').worker_id.transform(pd.Series.nunique)
     only4w = df[df.n_workers == 4]
-    print(f"number of predicates with full annotation of same 4 workers: {annotations.common.get_n_predicates(only4w)}")
+    print(f"number of predicates with full annotation of same 4 workers: {common.get_n_predicates(only4w)}")
 
     grp1, grp2 = ['A1FS8SBR4SDWYG', 'AJQGWGESKQT4Y'], ['A21LONLNBOB8Q', 'A2A4UAFZ5LW71K']
     r2grp = lambda r: "grp1" if r.worker_id in grp1 else "grp2"

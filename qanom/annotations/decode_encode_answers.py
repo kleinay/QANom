@@ -26,7 +26,7 @@ Argument = Tuple[int, int]
 def arg_length(argument: Argument) -> int:
     return argument[1]-argument[0]
 
-QUESTION_FIELDS = ['wh', 'subj', 'obj', 'aux', 'verb_prefix', 'prep', 'obj2', 'is_passive', 'is_negated']
+QUESTION_FIELDS = ['wh', 'subj', 'obj', 'aux', 'verb_prefix', 'verb_slot_inflection', 'prep', 'obj2', 'is_passive', 'is_negated']
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,7 @@ class Question:
     obj: str
     aux: str
     verb_prefix: str
+    verb_slot_inflection: str
     prep: str
     obj2: str
     is_passive: bool
@@ -50,7 +51,11 @@ class Question:
 
     @classmethod
     def empty(cls):
-        return Question("", "", "", "", "", "", "", "", False, False)
+        return Question("", "", "", "", "", "", "", "", "", False, False)
+
+    @classmethod
+    def text_only(cls, question_text):
+        return Question(question_text, "", "", "", "", "", "", "", "", False, False)
 
 
 @dataclass(frozen=True)
@@ -213,7 +218,12 @@ def question_from_row(row: pd.Series) -> Question:
 
 def yield_roles(predicate_df: pd.DataFrame) -> Generator[Role, None, None]:
     for row_idx, role_row in predicate_df.iterrows():
-        question = question_from_row(role_row)
+        if any(q_field not in predicate_df.columns for q_field in QUESTION_FIELDS):
+            # this is not a qanom annotation file, but rather other format (e.g. NomBank csv file).
+            # Thus, take only question text as Question
+            question = Question.text_only(role_row.question)
+        else:
+            question = question_from_row(role_row)
         arguments: List[Argument] = role_row.answer_range
         # for No-QA-Applicable, yield no role (empty list of roles)
         if not question.isEmpty():

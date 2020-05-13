@@ -1,13 +1,14 @@
+
 from argparse import ArgumentParser
 from typing import List, Dict, Tuple, Generator
 
 import pandas as pd
 from tqdm import tqdm
 
-from annotations.common import read_annot_csv, read_csv, get_sent_map, get_predicate_idx_label
-from annotations.decode_encode_answers import NO_RANGE, Argument, Role, Question, Response, decode_response
-from evaluation.alignment import find_matches, align_by_argument
-from evaluation.metrics import Metrics, BinaryClassificationMetrics
+from qanom.annotations.common import read_annot_csv, read_csv, get_sent_map, get_predicate_idx_label
+from qanom.annotations.decode_encode_answers import NO_RANGE, Argument, Role, Question, Response, decode_response
+from qanom.evaluation.alignment import find_matches, align_by_argument
+from qanom.evaluation.metrics import Metrics, BinaryClassificationMetrics
 
 
 def to_qa_pair(roles: List[Role]) -> List[Tuple[Argument, Question]]:

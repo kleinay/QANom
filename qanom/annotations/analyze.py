@@ -3,11 +3,11 @@ from typing import *
 
 import pandas as pd
 
-import annotations.common
-import evaluation.evaluate_inter_annotator as eia
-from annotations.common import get_n_assignments, get_n_predicates, get_n_positive_predicates, filter_questions, \
-    get_n_QAs, get_predicate_idx_label, get_n_args
+import qanom.evaluation.evaluate_inter_annotator as eia
 from qanom import utils
+from qanom.annotations.common import get_n_assignments, get_n_predicates, get_n_positive_predicates, filter_questions, \
+    get_n_QAs, get_predicate_idx_label, get_n_args
+from qanom.annotations.decode_encode_answers import Question, question_from_row
 
 
 def isVerbalSumSeries(annot_df: pd.DataFrame) -> pd.Series:
@@ -33,8 +33,8 @@ def isVerbalStatistics(annot_df: pd.DataFrame):
 
 def most_controversial_predicates(annot_df: pd.DataFrame):
     from scipy import stats
-    from qanom.annotations.common import normalize
-    sent_map: Dict[str, List[str]] = annotations.common.get_sent_map(annot_df)
+    from qanom.annotations.common import normalize, get_sent_map
+    sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
     cols = ['qasrl_id', 'verb_idx', 'verb']
     entropies = annot_df.groupby(cols).is_verbal.agg(lambda s: stats.entropy(normalize(s.value_counts()), base=2))
     print(entropies.sort_values(ascending=False))
@@ -110,3 +110,18 @@ def compute_num_self_cycles_percentage(annot_df: pd.DataFrame) -> float:
     n_self_loops = compute_num_self_cycles(annot_df)
     n_args = get_n_args(annot_df)
     return float(n_self_loops) / n_args
+
+
+def analyze_question_feature_distribution(annot_df: pd.DataFrame, question_func: Callable[[Question,], Any]) -> Counter:
+    """ given a function f mapping Questions to any value, return the distribution of f(q) for all Q in dataset """
+    values = []
+    for i,row in filter_questions(annot_df).iterrows():
+        question: Question = question_from_row(row)
+        values.append(question_func(question))
+    return Counter(values)
+
+
+def question_role_distribution(annot_df: pd.DataFrame) -> Counter:
+    from qanom.evaluation.roles import question_to_sem_role
+    rawCounter = analyze_question_feature_distribution(annot_df, question_func=question_to_sem_role)
+    return utils.asRelative(rawCounter)
