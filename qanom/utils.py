@@ -46,6 +46,8 @@ def df_to_dict(df: pd.DataFrame, key_column: str, value_column: str) -> Dict[Any
     """ Return a dict compiled from two columns in a DataFrame. """
     return dict(zip(df[key_column], df[value_column]))
 
+def df_first_row(df: pd.DataFrame) -> pd.Series:
+    return list(df.iterrows())[0][1]
 
 def asRelative(distribution : Union[List, Dict]):
     # get a list\dict of numbers (a distribution), return the relative distribution (element/sum)
@@ -67,6 +69,13 @@ def replaceKeys(orig_dict, oldKeys2NewKeys, inplace=True):
             if inplace: orig_dict.pop(oldKey)
     return target_dict
 
+def removeKeys(orig_dict: Dict[Any, Any], keys: List[Any], inplace=True) -> Dict[Any, Any]:
+    """ remove these keys from the orig_dict. """
+    if not inplace:
+        orig_dict = orig_dict.copy()
+    for key in keys:
+        orig_dict.pop(key)
+    return orig_dict
 
 def dictOfLists(pairs):
     # return a { key : [values given to that key] } for the pair list.

@@ -439,4 +439,4 @@ def merge_splits_into_final_large_files() -> NoReturn:
     concatCsvsInFinalDir(wikinews_train_fns, "annot.wikinews.train.csv")
     concatCsvsInFinalDir(wikipedia_train_fns, "annot.wikipedia.train.csv")
     concatCsvsInFinalDir(["annot.wikinews.train.csv", "annot.wikipedia.train.csv"],
-                         "annot.train.csv")
+                         "annot.train.jsonl")

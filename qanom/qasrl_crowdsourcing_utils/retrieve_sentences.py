@@ -1,6 +1,7 @@
 # generate Data CSVs for QASRL-2.0 data jsonl files
 import csv
 import json
+
 import pandas as pd
 
 HEADER = ["qasrl_id", "domain", "tokens", "sentence"]
