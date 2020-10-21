@@ -5,8 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-# JM
-# from seqeval.metrics import f1_score, precision_score, recall_score
+
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from torch import nn
 
@@ -189,7 +188,6 @@ def main():
                 if label_ids[i, j] != nn.CrossEntropyLoss().ignore_index:
                     out_label_list[i].append(label_map[label_ids[i][j]])
                     preds_list[i].append(label_map[preds[i][j]])
-        # JM
 
         return preds_list, out_label_list
 
@@ -251,7 +249,6 @@ def main():
             overwrite_cache=data_args.overwrite_cache,
             mode=Split.test
         )
-        # JM
         predictions, label_ids, metrics = trainer.predict(test_dataset)
         preds_list, _ = align_predictions(predictions, label_ids)
         if data_args.do_predict_performance:
@@ -274,23 +271,22 @@ def main():
                         if not preds_list[example_id]:
                             example_id += 1
                     elif preds_list[example_id]:
-                        # JM-1
+
                         if len(line.split()) > 1 and line.split()[1] == 'O':
                             output_line = line
                         else:
                             if len(line.split()) > 1:
                                 assert line.split()[1] == 'True' or line.split()[1] == 'False'
-                            # JM-2
+
                             output_line = line.split()[0] + " " + preds_list[example_id].pop(0) + "\n"
                         writer.write(output_line)
                     else:
-                        # JM-1
+
                         if len(line.split()) > 1 and line.split()[1] == 'O':
                             writer.write(line)
                         else:
                             if len(line.split()) > 1:
                                 assert line.split()[1] == 'True' or line.split()[1] == 'False'
-                            # JM-2
                             logger.warning("Maximum sequence length exceeded: No prediction for '%s'.", line.split()[0])
 
     return results

@@ -282,12 +282,10 @@ def convert_examples_to_features(
             if len(word_tokens) > 0:
                 tokens.extend(word_tokens)
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
-                # JM-1
                 if label != 'O':
                     label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
                 else:
                     label_ids.extend([pad_token_label_id] * (len(word_tokens)))
-                # JM-2
 
         # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
         special_tokens_count = tokenizer.num_special_tokens_to_add()
@@ -378,8 +376,6 @@ def get_labels(path: str) -> List[str]:
     if path:
         with open(path, "r") as f:
             labels = f.read().splitlines()
-        # JM
         return labels
     else:
-        # JM
         return ["True", "False"]

@@ -1,6 +1,5 @@
 import csv
 from collections import defaultdict
-from random import random
 import argparse
 
 def csv2conll(csv_filename, conll_filename):
@@ -18,14 +17,9 @@ def csv2conll(csv_filename, conll_filename):
                 id2sent[qasrl_id] = sentence
             else:
                 assert id2sent[qasrl_id] == sentence
-            if 'is_verbal' in row:
-                is_verbal = row['is_verbal']
-                assert is_verbal == 'True' or is_verbal == 'False'
-            else:
-                if random() > 0.5:
-                    is_verbal = 'True'
-                else:
-                    is_verbal = 'False'
+            is_verbal = row['is_verbal']
+            assert is_verbal == 'True' or is_verbal == 'False'
+
             if target_idx not in id2nom[qasrl_id]:
                 id2nom[qasrl_id][target_idx] = is_verbal
             else:
@@ -45,12 +39,11 @@ def csv2conll(csv_filename, conll_filename):
 
 
 parser = argparse.ArgumentParser(description='Prepare QANOM data')
-parser.add_argument('--csv', type=str, default='dataset/ACE-qa-nom/test_ace.nouns.csv')
-parser.add_argument('--txt', type=str, default='dataset/ACE-qa-nom/test.txt')
+parser.add_argument('--INPUT_DIR', type=str, default='output/candidate_extraction/',
+                    help="directory with candidate extraction output")
+parser.add_argument('--OUTPUT_DIR', type=str, default='output/predicate_detector/',
+                    help="directory with predicate detector output")
 args = parser.parse_args()
 
-csv2conll(args.csv, args.txt)
-
-DIR = '/Users/jmamou/work/all/QA-NOM/final/'
 for mode in {'dev', 'test', 'train'}:
-    csv2conll(DIR+mode + '.csv', DIR+mode + '.txt')
+    csv2conll(args.INPUT_DIR+mode + '.csv', args.OUTPUT_DIR+mode + '.txt')
