@@ -1,3 +1,5 @@
+# code based on https://github.com/huggingface/transformers/blob/master/examples/token-classification/run_ner.py
+
 import logging
 import os
 import sys
@@ -21,9 +23,7 @@ from transformers import (
 )
 from utils_nom_id import NomIdDataset, Split, get_labels
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class ModelArguments:
