@@ -1,6 +1,6 @@
 # a python script for qasrl-crowdsourcing project, to run the qanom (python) script for 
 # identifying candidate nominalization for sentences.
-# This script can be called from everywhere, and it will run the qanom module 'prepare_qanom_prompts.py' after changing directroy as required, using a python executable in 'QANom/.venv3'.
+# This script can be called from everywhere, and it will run the qanom module 'candidate_extraction.py' after changing directroy as required, using a python executable in 'QANom/.venv3'.
 
 import os
 import subprocess
@@ -17,7 +17,7 @@ virtual_env_name = '.venv3'
 python_exe = os.path.join(qanom_repo_root, virtual_env_name, 'bin', 'python')
 assert os.path.isfile(python_exe), "Cannot find python executable"
 
-script_name = 'prepare_qanom_prompts.py'
+script_name = 'candidate_extraction.py'
 script_packages = ['qanom', 'candidate_extraction']
 script = os.path.join(qanom_repo_root, *script_packages, script_name)
 assert os.path.isfile(script), "Cannot find script: " + script 

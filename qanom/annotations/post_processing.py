@@ -48,7 +48,7 @@ def merge_csvs(csvs: List[str], dest: str) -> pd.DataFrame:
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     """
     Verify that all the HITs of the annotated data are valid according to the latest version of
-    prepare_qanom_prompts.py, where I have found and corrected errors about:
+    candidate_extraction.py, where I have found and corrected errors about:
         [* Wordnet edit-distance threshold] (deprecated after next change)
         * Wordnet verbalize() algorithm - using lemmas instead of synsets (large impact!)
         * Tokenization issues - pos_tagger imposes different tokenization from sentence.split() or nltk.tokenize;
@@ -61,7 +61,7 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     :return: a DataFrame adding to annot_df:
         * an "invalid_prompt" column (boolean) - True if prompt changed (requires re-annotation or removal).
         * a "corrected_verb_form" column (string) indicating the up-to-date suggested verb_form returned by
-        prepare_qanom_prompts.py. Notice that if it's an empty string, it means that for the current algorithm,
+        candidate_extraction.py. Notice that if it's an empty string, it means that for the current algorithm,
         no verb_form is available for this noun, meaning that we should delete the current annotation row but we should
         not re-annotate this target noun.
     """
@@ -85,7 +85,7 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
 
 def reannotate_corrected_verb_forms(annot_df: pd.DataFrame, output_json_fn) -> NoReturn:
     """
-    Generate input for the qasrl_crowdsourcing project (equivalent to output of prepare_qanom_prompts.py)
+    Generate input for the qasrl_crowdsourcing project (equivalent to output of candidate_extraction.py)
     :param annot_df: returned from find_invalid_prompts()
     :param output_json_fn: file name where to dump the JSON of the prompts for re-annotation
     """
