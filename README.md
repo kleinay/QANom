@@ -84,9 +84,34 @@ Filter 2 (`verb_to_nom.py`) uses [pattern.en](https://www.clips.uantwerpen.be/pa
 If there are multiple derivationally related verbs, we select the verb that minimizes the edit distance with the noun. 
 
 
-## Predicate Detector
+## QANom Predicate Detector
 todo
 
 
-## QANom Baseline Model 
-todo
+## QANom Baseline parser 
+The `qanom_parser` is essentially the [nrl-qasrl](https://github.com/kleinay/nrl-qasrl/tree/qanom) parser for QA-SRL, presented in 
+[*Large-Scale QA-SRL Parsing* (FitzGerald et. al., 2018)](https://www.aclweb.org/anthology/P18-1191/).
+To adapt the parser to QANom specifications (e.g. that the verb in the question is not the predicate itself) 
+and format (csv), we have our own `qanom` branch on the `nrl-qasrl` repository. This branch uses the `qanom` package.
+Run `./scripts/setup_parser.sh` to clone the parser into `qanom_parser` directory and prepare its prerequisites.
+Then `cd qanom_parser` to run model-related commands as those described below.
+
+### Training models
+Follow the `README` in `qanom_parser` for instructions on training new QA-SRL models.
+
+A QANom parser is trained using a CSV file (QANom format) as input, with the `QANomReader` DatasetReader 
+(in `nrl/data/dataset_readers/qanom_reader.py`). For example: 
+
+```bash
+# first train a span-predictor for identifying answer spans (i.e. arguments)
+allennlp train configs/train_qanom_span_elmo.jsonnet --include-package nrl -s data/trained_models/combined_span_elmo 
+
+```
+   
+If you want to use the trained parsers from the Large Scale QA-SRL (2018) and the QANom (2020) papers, 
+run `./qanom_parser/scripts/download_pretrained.sh`. This downloads both `qasrl_parser_elmo` and `qanom_parser_elmo` 
+models into `./models` directory. If you train your own models, put them in this directory as well. 
+
+
+
+
