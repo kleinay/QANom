@@ -1,6 +1,6 @@
 # QANom - Annotating Nominal Predicates with QA-SRL
 
-This repository is the reference point for the dataset and evaluation protocols described in the paper 
+This repository is the reference point for the data and software described in the paper 
 *QANom: Question-Answer driven SRL for Nominalizations*.
 
 
@@ -11,7 +11,7 @@ The original QANom Dataset can be downloaded from this
 
 ## Crowdsourcing QANom via MTurk
 
-The QANom dataset was collected through Amazon Mechanical Turk. 
+The QANom dataset was collected through [Amazon Mechanical Turk](https://www.mturk.com/) (MTurk). 
 It was annotated by pre-selected crowd workers who exhibited good performance when previously annotating QA-SRL.
 Workers first thoroughly read and comprehend the **annotation guidelines** - 
 both for [question generation](https://docs.google.com/presentation/d/1AGLdjilE4GDaF1ybXaS4JXabGLrfK58W1p6mteU_yrw/present?slide=id.p) 
@@ -40,6 +40,11 @@ You can use the candidate extraction module to for several purposes:
 1. As a pre-processing for the QANom crowd-annotation task
 2. As a pre-processing for the `predicate_detector` model
 3. For custom usage.
+
+### Module's pre-requisite 
+```bash
+pip install pandas nltk git+git://github.com/pattern3/pattern
+```
 
 ### Usage
 ```bash

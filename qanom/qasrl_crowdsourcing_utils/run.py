@@ -1,7 +1,9 @@
-# a python script for qasrl-crowdsourcing project, to run the qanom (python) script for 
-# identifying candidate nominalization for sentences.
-# This script can be called from everywhere, and it will run the qanom module 'candidate_extraction.py' after changing directroy as required, using a python executable in 'QANom/.venv3'.
-
+"""
+a python script for qasrl-crowdsourcing project, to run the qanom (python) script for
+ identifying candidate nominalization for sentences.
+This script can be called from everywhere, and it will run the qanom module 'candidate_extraction.py' after
+changing directory as required, using a python executable in 'QANom/.venv3's.
+"""
 import os
 import subprocess
 import sys

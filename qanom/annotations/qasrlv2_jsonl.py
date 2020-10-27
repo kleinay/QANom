@@ -2,8 +2,7 @@
 Utils for converting between QANom CSV format (and similarly QASRL-GS format as in (Roit et. al., 2020))
 and Large-Scale-QA-SRL jsonl format (https://github.com/uwnlp/qasrl-bank/blob/master/FORMAT.md).
 """
-import json
-import os
+import json, os
 from dataclasses import asdict
 from typing import Dict, Any, NoReturn, List, Tuple
 
