@@ -9,6 +9,7 @@ import pandas as pd
 
 from qanom import utils
 from qanom.annotations import common
+from qanom.annotations.common import read_annot_csv, save_annot_csv, read_dir_of_csv
 
 
 # generic post-processing function
@@ -24,7 +25,6 @@ def postprocess_annotation_files(orig_dir: str, dest_dir: str,
     :return:
     """
     ann_files = [os.path.join(orig_dir, fn) for fn in os.listdir(orig_dir) if fn.endswith(".csv")]
-    from annotations.common import read_annot_csv, save_annot_csv
     for orig_fn in ann_files:
         orig_df = read_annot_csv(orig_fn)
         new_df = process_annot_func(orig_df)
@@ -37,7 +37,6 @@ def postprocess_annotation_files(orig_dir: str, dest_dir: str,
 
 
 def merge_csvs(csvs: List[str], dest: str) -> pd.DataFrame:
-    import qanom.annotations.common as common
     dfs = [common.read_csv(csv_fn) for csv_fn in csvs]
     merged_df = pd.concat(dfs, ignore_index=True, sort=False)
     merged_df.to_csv(dest, index=False, encoding="utf-8")
@@ -48,7 +47,7 @@ def merge_csvs(csvs: List[str], dest: str) -> pd.DataFrame:
 def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     """
     Verify that all the HITs of the annotated data are valid according to the latest version of
-    prepare_qanom_prompts.py, where I have found and corrected errors about:
+    candidate_extraction.py, where I have found and corrected errors about:
         [* Wordnet edit-distance threshold] (deprecated after next change)
         * Wordnet verbalize() algorithm - using lemmas instead of synsets (large impact!)
         * Tokenization issues - pos_tagger imposes different tokenization from sentence.split() or nltk.tokenize;
@@ -61,15 +60,15 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
     :return: a DataFrame adding to annot_df:
         * an "invalid_prompt" column (boolean) - True if prompt changed (requires re-annotation or removal).
         * a "corrected_verb_form" column (string) indicating the up-to-date suggested verb_form returned by
-        prepare_qanom_prompts.py. Notice that if it's an empty string, it means that for the current algorithm,
+        candidate_extraction.py. Notice that if it's an empty string, it means that for the current algorithm,
         no verb_form is available for this noun, meaning that we should delete the current annotation row but we should
         not re-annotate this target noun.
     """
     def annot_row_to_corrected_verb_form(row: pd.Series) -> str:
-        from candidate_extraction import prepare_qanom_prompts
+        from qanom.candidate_extraction import candidate_extraction
         noun = row.verb
         uptodate_verb_forms, is_had_uptodate_verbs = \
-            prepare_qanom_prompts.get_verb_forms_from_lexical_resources(noun, **prepare_qanom_prompts.resources)
+            candidate_extraction.get_verb_forms_from_lexical_resources(noun, **candidate_extraction.resources)
         # return empty string for non-verbal nouns (nouns with no verb_forms)
         if not is_had_uptodate_verbs:
             return ""
@@ -85,7 +84,7 @@ def find_invalid_prompts(annot_df : pd.DataFrame) -> pd.DataFrame:
 
 def reannotate_corrected_verb_forms(annot_df: pd.DataFrame, output_json_fn) -> NoReturn:
     """
-    Generate input for the qasrl_crowdsourcing project (equivalent to output of prepare_qanom_prompts.py)
+    Generate input for the qasrl_crowdsourcing project (equivalent to output of candidate_extraction.py)
     :param annot_df: returned from find_invalid_prompts()
     :param output_json_fn: file name where to dump the JSON of the prompts for re-annotation
     """
@@ -116,7 +115,6 @@ def replace_some_annotations(orig_df: pd.DataFrame, corrected_annot_df: pd.DataF
 
 def fix_annot_with_corrected(orig_annot_fn: str, corrected_annot_fn: str,
                              dest_dir: str = "files/annotations/production/corrected") -> NoReturn:
-    from annotations.common import read_annot_csv, save_annot_csv
     orig_df = read_annot_csv(orig_annot_fn)
     all_corrected_df = read_annot_csv(corrected_annot_fn)
     corrected_df = replace_some_annotations(orig_df, all_corrected_df)
@@ -164,7 +162,6 @@ def generate_filtered_annotation_files():
 
 def fix_annot_with_nmr_blacklist(orig_annot_fn: str,
                                  dest_dir: str) -> NoReturn:
-    from annotations.common import read_annot_csv, save_annot_csv
     orig_df = read_annot_csv(orig_annot_fn)
     filtered_df = remove_NMR_cases_from_annotations(orig_df)
     # now export to file with same naming as orig (but in destination folder)
@@ -202,7 +199,6 @@ def get_NMR_cases(feedbacks_dir: str) -> Set[Tuple[str, str]]:
     """ get all NMR cases - all (noun, verb_form) pairs that got any NMR feedback anywhere.
      The function would work for feedback files containing 'sentence' column.
      """
-    from annotations.common import read_dir_of_csv
     fddf = read_dir_of_csv(feedbacks_dir, sep="\t")
     # fix feedback-files issues
     fix_qasrl_id(fddf)
@@ -259,10 +255,10 @@ def generate_pruned_dupl_annot() -> NoReturn:
     gen_dupl_fn = "files/annotations/gold_set/generation/corrected_filtered/annot.dupl.wikinews.dev.5.csv"
     arb_dupl_fn = "files/annotations/gold_set/arbitration/arbit.dupl.wikinews.dev.5.csv"
     out_fn = "files/annotations/gold_set/final/annot.final.wikinews.dev.5.csv"
-    gen_dupl_df = common.read_annot_csv(gen_dupl_fn)
-    arb_dupl_df = common.read_annot_csv(arb_dupl_fn)
+    gen_dupl_df = read_annot_csv(gen_dupl_fn)
+    arb_dupl_df = read_annot_csv(arb_dupl_fn)
     pruned_final_df = prune_duplicated_annot(gen_dupl_df, arb_dupl_df)
-    common.save_annot_csv(pruned_final_df, out_fn)
+    save_annot_csv(pruned_final_df, out_fn)
 
 
 """
@@ -292,7 +288,6 @@ def generate_final_annotation_files() -> NoReturn:
     ann_files = [(os.path.join(arb_dir_path, fn), os.path.join(gen_dir_path, arb_name_to_gen_name(fn)))
                  for fn in os.listdir(arb_dir_path)
                  if fn.endswith(".csv") and arb_name_to_gen_name(fn) in os.listdir(gen_dir_path)]
-    from annotations.common import read_annot_csv, save_annot_csv
     # prepare worker anonymization (dataset-wide)
     anonymization: Dict[str, str] = get_anonymization(all_worker_ids)
     for arb_fn, gen_fn in ann_files:
@@ -383,7 +378,6 @@ def generate_final_train_annotations() -> NoReturn:
     dest_path = "files/annotations/train_set/final"
     ann_files = [os.path.join(orig_train_dir_path, fn)
                  for fn in os.listdir(orig_train_dir_path) if fn.endswith('.csv')]
-    from annotations.common import read_annot_csv, save_annot_csv
     # prepare worker anonymization (dataset-wide)
     anonymization: Dict[str, str] = get_anonymization(all_worker_ids)
     for gen_fn in ann_files:

@@ -1,5 +1,8 @@
-*.ipynb
-*.idea/
-*.venv/
+.idea*
+.venv*
 *.pyc
-qasrl-crowdsourcing
+*.ipynb
+*.tmp
+*.tar.gz
+resources/*
+qanom_parser/

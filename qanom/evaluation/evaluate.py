@@ -170,7 +170,7 @@ def count_labeled_arg_matches(grt_roles: List[Role], sys_roles: List[Role], sys_
                                        for arg in sys_to_grt.keys()}
     grt_arg2q: Dict[Argument, Role] = {arg : find_role(arg, grt_roles)
                                        for arg in sys_to_grt.values()}
-    from evaluation.roles import is_equivalent_question
+    from qanom.evaluation.roles import is_equivalent_question
 
     def is_labeled_arg_match(sys_arg: Argument, grt_arg: Argument) -> bool:
         sys_question = sys_arg2q[sys_arg].question

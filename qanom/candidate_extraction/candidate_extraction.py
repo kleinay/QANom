@@ -1,0 +1,291 @@
+"""
+Use lexical resources to extract nouns that are candidates for being deverbal nominalizations.
+
+The script can be used for generating a JSON file that serves as input to the qasrl-crowdsourcing MTurk application
+for annotating verbal arguments of nominalizations (qanom-unified branch).
+It can also be used for generating a CSV files that serves as input to the predicate_detector.
+
+
+Logic building blocks:
+* load raw data  (sentences) from corpus
+* use Stanford CoreNLP to POS-tag the sentence
+* get common nouns ("NN", "NNS")
+* filter by wordnet + CatVar (+ possible-noms from the inhouse verb_to_nom utility)
+* generate a list of nominalization candidates, each containing:
+    { "sentenceId": sentence ID (string),
+      "tokSent": sentence tokens (list),
+      "targetIdx": index of candidate noun (int),
+      "verbForms": non-empty list of verb-forms (strings) (ordered by edit distance)
+    }
+
+"""
+
+import json, os, sys, argparse
+from typing import List, Tuple, Iterable, Dict, Any, Literal
+
+import pandas as pd
+import nltk
+
+# add project basic directory to sys.path, in order to refer qanom as a package from anywhere
+project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(project_dir)
+
+from qanom.candidate_extraction import wordnet_util, catvar as catvar_util
+from qanom.annotations.common import read_csv
+from qanom.candidate_extraction.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
+
+""" Define which resources should be used (by default) for filtering nouns as candidate nominalizations. """
+default_resources = {"wordnet": True,
+                     "catvar": True,
+                     "affixes_heuristic": True}
+
+vtn = VTN()
+
+# by default, use nltk's default pos_tagger ('averaged_perceptron_tagger'):
+nltk.download('averaged_perceptron_tagger')
+pos_tag = nltk.pos_tag
+"""
+Alternatively, when extracting candidates for crowdsourcing QANom annotations through the qasrl-crowdsourcing project,
+one should use the same POS model as inside qasrl-crowdsourcing for consistency. 
+qasrl-crowdsourcing uses the CoreNLPParser model in Java. We will use here nltk's CoreNLPParser wrapper.
+To run the CoreNLPParser model as a server on your machine (port 9000), 
+pre-run the following command from the unzipped directory of the stanford-core-nlp project 
+(see https://www.khalidalnajjar.com/setup-use-stanford-corenlp-server-python/ for instructions): 
+```bash
+java -mx4g -cp "*" edu.stanford.nlp.pipeline.StanfordCoreNLPServer -annotators "tokenize,ssplit,pos,lemma,parse,sentiment" -port 9000 -timeout 30000
+```
+Then, replace the above two-lines in the python script with the following block: 
+```python
+from nltk.parse import CoreNLPParser
+pos_tagger = CoreNLPParser(url='http://localhost:9000', tagtype='pos')
+pos_tag = pos_tagger.tag
+```
+"""
+
+COMMON_NOUNS_POS = ["NN", "NNS"]
+
+
+# load data from corpus
+def get_sentences_from_csv(csv_fn):
+    """
+    Load raw data (sentence with sentence-id) from simple csv format
+    :param csv_fn: file name for the simple raw_data file (sentenceId, sentence)
+    :return: dict {sentenceId : sentence}
+    """
+    df = read_csv(csv_fn)
+    possible_labels_for_sent_id = {'sentenceId', 'sentence_id', 'qasrl_id'}
+    sent_id_label = list(possible_labels_for_sent_id & set(df.columns))[0]
+    df = df.set_index(sent_id_label)
+    records = df[['sentence']].to_records()
+    return dict(records)
+
+
+def tokenize_and_pos_tag(sentence):
+    """
+    Apply CoreNLP POS-Tagger on sentences.
+    CoreNLP is running on server, so use it to be compatible with the qasrl-crowdsourcing POS tagging
+    :param sentence: unicode string
+    :return:
+     pos is [ (token, POS) for each token in sentence ]
+     tok is [ tok for each token in sentence ]
+     returning (tok, pos)
+    """
+    pos_tagged = list(pos_tag(sentence.split(" ")))
+    tokenized = [e[0] for e in pos_tagged]
+    return tokenized, pos_tagged
+
+
+# get common nouns ("NN", "NNS")
+def get_common_nouns(posTaggedSent: List[Tuple[str, str]]):
+    """
+    Filter and retrieve common-nouns from the sentence (to be candidates for nominaliation)
+    :param posTaggedSent: [ (token1, pos1), ...]
+    :return: list of (index, token) tuples
+    """
+    nouns = []
+    for index, (token, pos) in enumerate(posTaggedSent):
+        if pos in COMMON_NOUNS_POS:
+            nouns.append((index, token))
+    return nouns
+
+
+# verbalize using both WordNet, CatVar and our in-house suffix-based
+# heuristic (=VTN: Verb To possible Nominalizations; implementation at `verb_to_nom.py`)
+def get_verb_forms_from_lexical_resources(nn,
+                                          wordnet=True,
+                                          catvar=True,
+                                          affixes_heuristic=True,
+                                          filter_distant=False) -> Tuple[List[str], bool]:
+    wordnet_verbs = wordnet_util.convert_pos_by_lemmas(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB) \
+        if wordnet else []
+    # apply distant-verbs filtering on wordnet verbs
+    if filter_distant:
+        wordnet_verbs = list(filter(lambda v: filter_distant_verb_forms(v, nn), wordnet_verbs))
+
+    catvar_verbs = catvar_util.catvariate(nn) if catvar else []
+    affixes_heuristic_verbs = vtn.get_source_verbs(nn) if affixes_heuristic else []
+    # sort by distance
+    vrbs = catvar_verbs + wordnet_verbs + affixes_heuristic_verbs
+    vrbs = [v for v, w in wordnet_util.results_by_edit_distance(nn, vrbs)]
+    if vrbs:
+        return vrbs, True
+    else:
+        return [nn], False
+
+
+def is_candidate_noun(nn: str, **resources) -> bool:
+    # does it have candidate (morphologically related) verb-forms?
+    return get_verb_forms_from_lexical_resources(nn, **resources)[1]
+
+
+def filter_distant_verb_forms(verb_form, noun):
+    """ Return False for a verb_form whose edit-distance from noun is too large
+    (indicating it's probably not morphologically related). """
+    edit_distance = wordnet_util.levenshteinDistance(verb_form, noun)
+    short_size, long_size = min(len(verb_form),len(noun)), max(len(verb_form),len(noun))
+    edit_distance_without_suffix = wordnet_util.levenshteinDistance(verb_form[:short_size], noun[:short_size])
+    avg_size = (len(verb_form)+len(noun))/2.0
+    num_chars_maybe_arbitrarily_identical = short_size/3
+    if edit_distance_without_suffix > short_size - num_chars_maybe_arbitrarily_identical:
+        print("filtered out: +'"+verb_form+"' (edit-distance: "+str(edit_distance)+") for the noun '"+noun+"'")
+        return False
+    else:
+        return True
+
+"""
+Different functions for different input formats of sentences.
+"""
+def get_sentences_from_allennlp_jsonl(sentences_josnl_fn: str) -> Dict[str, str]:
+    """
+    @:param sentences_josnl_fn: a file name of JSON-lines of input sentences, as allennlp predictors input format:
+        {"sentence": <actual sentence string> }
+        {"sentence": <actual sentence string> }
+        ...
+    Returns: dict of sentences. Generated a unique sentence_id for the sentences (by index).
+    """
+    with open(sentences_josnl_fn) as f:
+        sentences = []
+        for line in f.readlines():
+            sentences.append(json.loads(line)["sentence"])
+    return get_sentences_from_iterable(sentences)
+
+
+def get_sentences_from_iterable(sentences: Iterable[str]) -> Dict[str, str]:
+    """
+    @:param sentences: iterable of raw sentences
+    Returns: dict of sentences. Generated a unique sentence_id for the sentences (by index).
+    """
+    sentences_dict: Dict[str, str] = {f"Sentence-{1+i:04}": sent for i, sent in enumerate(sentences)}
+    return sentences_dict
+
+
+# the "core" function of extracting candidates from sentences
+def get_candidate_nouns(sentences: Dict[str, str], **resources) -> List[Dict[str, Any]]:
+    """
+    @:param sentences: {sentence_id : sentence_string}
+    Returns: list of candidate_info (dict)
+    """
+    all_candidates = []
+    for sid, sentence in sentences.items():
+        # POS-tagging and tokenize are dependant, so doing both together
+        tokenizedSent, posTaggedSent = tokenize_and_pos_tag(sentence)
+        for idx, nn in get_common_nouns(posTaggedSent):
+            verb_forms, is_had_verbs = get_verb_forms_from_lexical_resources(nn, **resources)
+            # take only common nouns that have optional verb-forms as candidates:
+            if is_had_verbs:
+                candidate_info = {"sentenceId": sid,
+                                  "tokSent" : tokenizedSent,
+                                  "targetIdx": idx,
+                                  "verbForms": verb_forms[:5]}
+
+                all_candidates.append(candidate_info)
+    return all_candidates
+
+
+def export_candidate_info_to_csv(candidates_info: List[Dict[str, Any]], csv_out_fn: str = None) -> pd.DataFrame:
+    """
+    Export the noun-candidates info (returned by `get_candidate_nouns`) into a QANom-csv format,
+     with columns: 'qasrl_id', 'sentence', 'target_idx', 'noun'.
+    It is useful when you want to use a candidate extraction heuristic as a pre-processing for QANom model
+    that was trained on QANom data (which is in qanom csv format).
+
+    :param candidates_info: see output of `get_candidate_nouns`
+    :param csv_out_fn: [optional] a file name to write the csv into.
+    :return: a DataFrame of the produced CSV
+    """
+    df = pd.DataFrame(candidates_info)
+    # now modify the dataFrame to match qanom annotation format
+    df['sentence'] = df.apply(lambda r: ' '.join(r['tokSent']), axis=1)
+    df['sentence'] = df.apply(lambda r: ' '.join(r['tokSent']), axis=1)
+    df['noun'] = df.apply(lambda r: r['tokSent'][int(r['targetIdx'])], axis=1)
+    df = df.drop(['tokSent', 'verbForms'], axis='columns')
+    df = df.rename(mapper={'targetIdx': 'target_idx',
+                           'sentenceId': 'qasrl_id'},
+                   axis='columns')
+    if csv_out_fn:
+        df.to_csv(csv_out_fn, index=False)
+    return df
+
+# a Utility function to use candidate extraction both as a module as well as script
+def extract_candidate_nouns(input: Any,
+                            input_format: Literal["iterable", "dict", "csv", "jsonl"],
+                            **resources) -> List[Dict[str, Any]]:
+    # get sentences-info into a {sentence_id: <id>, sentence: <str>} dict
+    if input_format == 'csv':
+        sentences = get_sentences_from_csv(input)
+    elif input_format == 'raw':
+        with open(input) as fin:
+            sentences = get_sentences_from_iterable(fin.read().splitlines())
+    elif input_format == "iterable":
+        sentences = get_sentences_from_iterable(input)
+    elif input_format == 'jsonl':
+        sentences = get_sentences_from_allennlp_jsonl(input)
+    else:
+        raise NotImplementedError()
+
+    candidates = get_candidate_nouns(sentences, **resources)
+    return candidates
+
+
+def main(args):
+    """ Read from command line arguments. """
+
+    # determine resources
+    resources = {"wordnet": args.wordnet,
+                 "catvar": args.wordnet,
+                 "affixes_heuristic": args.affixes_heuristic}
+
+    candidates = extract_candidate_nouns(args.sentences_fn,
+                                         args.input_format,
+                                         **resources)
+
+    # Write candidates information to output file. """
+    if args.output_format == 'json':
+        json.dump(candidates, open(args.output_fn, "w"))
+    elif args.output_format == 'csv':
+        export_candidate_info_to_csv(candidates, args.output_fn)
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Use lexical resources to extract nouns that are " +
+                                                 "candidates for being deverbal nominalizations.")
+    parser.add_argument('sentences_fn', type=str)
+    parser.add_argument('output_fn', type=str)
+    parser.add_argument('--read', dest='input_format', choices=['csv', 'jsonl', 'raw'], default='csv',
+                        help="Define the format of sentences_fn to read from. \n"
+                        +"csv is expecting a 'sentence' column and a 'sentence_id|sentenceId|qasrl_id' column.\n"
+                        +"jsonl correspond to AllenNLP predictor's format, where each line is {'sentence': string}.\n"
+                        +"raw is a text file, where each sentence is in a new line.")
+
+    parser.add_argument('--write', dest='output_format', choices=['csv', 'json'], default='json',
+                        help="Define the output format of candidate information. \n"
+                             + "csv is the QANom default format. This is the format which predicate-detector model expects as input. \n"
+                             + "json is used as input in the qasrl-crowdsourcing system when crowdsourcing QANom annotations.")
+    # which resources to use - by default, use all three
+    parser.add_argument('--no-wordnet', dest='wordnet', type=bool, action='store_false')
+    parser.add_argument('--no-catvar', dest='catvar', type=bool, action='store_false')
+    parser.add_argument('--no-affixes', dest='affixes_heuristic', type=bool, action='store_false')
+
+    args = parser.parse_args()
+    main(args)
