@@ -51,7 +51,7 @@ pip install pandas nltk git+git://github.com/pattern3/pattern
 
 ### Usage
 ```bash
-python qanom/candidate_extraction/candidate_extraction.py <input_file> <output_file> --read csv|josnl|raw --write csv|json [--no-wordnet] [--no-catvar] [--no-affixes]
+python qanom/candidate_extraction.py <input_file> <output_file> --read csv|josnl|raw --write csv|json [--no-wordnet] [--no-catvar] [--no-affixes]
 ```
 The script handle three input formats:
 * `csv` (default): a comma-separated file, with a `sentence` column stating the raw string of the sentence, 
@@ -182,7 +182,10 @@ python scripts/convert_predictor_output_to_csv.py <predicted-qanom.jsonl>
 Similarly, this would generate a `predicted-qanom.csv` file in a format equivalent to the QANom Dataset files.
 
 ## Evaluate
-todo
+Given two QANom CSV files, e.g. `predicted.csv` and `gold.csv`, evaluate *predicted* with *gold* as reference using the command:
+```bash
+python qanom/evaluate predicted.csv gold.csv
+```
 
 ## Run QANom end-to-end pipeline
 todo

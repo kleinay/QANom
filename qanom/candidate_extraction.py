@@ -7,6 +7,10 @@ It can also be used for generating a CSV files that serves as input to the predi
 """
 
 import argparse
+import sys
+import config
+sys.path.append(config.repository_root_path)
+
 from qanom.candidate_extraction import candidate_extraction
 
 parser = argparse.ArgumentParser(description="Use lexical resources to extract nouns that are " +

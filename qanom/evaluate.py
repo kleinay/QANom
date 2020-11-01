@@ -1,11 +1,14 @@
 from argparse import ArgumentParser
-import qanom.evaluation.evaluate
+import sys
+import config
+sys.path.append(config.repository_root_path)
+from qanom.evaluation import evaluate
 
 if __name__ == "__main__":
     ap = ArgumentParser()
     ap.add_argument("system_path", help="system predicted annotations (CSV file)")
     ap.add_argument("ground_truth_path", help="reference annotations (CSV file")
-    ap.add_argument("sentences_path", required=False, default=None,
+    ap.add_argument("sentences_path", default=None,
                     help="if the input files don't have a `sentence` column with the raw sentences (but only `qasrl_id`), provide a CSV file that maps `qasrl_id` to `sentence`.")
     args = ap.parse_args()
-    qanom.evaluation.evaluate.main(args.system_path, args.ground_truth_path, args.sentences_path)
+    evaluate.main(args.system_path, args.ground_truth_path, args.sentences_path)
