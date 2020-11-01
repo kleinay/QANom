@@ -27,9 +27,9 @@ if __name__ == "__main__":
                              + "csv is the QANom default format. This is the format which predicate-detector model expects as input. \n"
                              + "json is used as input in the qasrl-crowdsourcing system when crowdsourcing QANom annotations.")
     # which resources to use - by default, use all three
-    ap.add_argument('--no-wordnet', dest='wordnet', type=bool, action='store_false')
-    ap.add_argument('--no-catvar', dest='catvar', type=bool, action='store_false')
-    ap.add_argument('--no-affixes', dest='affixes_heuristic', type=bool, action='store_false')
+    ap.add_argument('--no-wordnet', dest='wordnet', action='store_false')
+    ap.add_argument('--no-catvar', dest='catvar', action='store_false')
+    ap.add_argument('--no-affixes', dest='affixes_heuristic', action='store_false')
 
     args = ap.parse_args()
 
