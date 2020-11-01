@@ -11,8 +11,8 @@ import logging
 
 from qanom.annotations.decode_encode_answers import Question
 
-# create logger with 'spam_application'
-logger = logging.getLogger('spam_application')
+# create logger
+logger = logging.getLogger(__file__)
 logger.setLevel(logging.DEBUG)
 
 core_wh_words = {'what', 'who'}

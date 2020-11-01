@@ -36,9 +36,9 @@ def sentence_json_to_df(qasrlv2: JSON_OBJ) -> pd.DataFrame:
     tok_sent = qasrlv2['sentenceTokens']
     sentence = ' '.join(tok_sent)
 
-    from annotations.decode_encode_answers import Response, Role, Question, Argument, encode_response
+    from qanom.annotations.decode_encode_answers import Response, Role, Question, Argument, encode_response
     data_columns = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'verb_form']
-    from annotations.consolidation import FINAL_COLUMNS
+    from qanom.annotations.consolidation import FINAL_COLUMNS
 
     def verb_entry_to_df(vEntry: JSON_OBJ) -> pd.DataFrame:
         verbIdx = vEntry['verbIndex']

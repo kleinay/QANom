@@ -12,7 +12,7 @@ from qanom.annotations.decode_encode_answers import Question, question_from_row
 
 def isVerbalSumSeries(annot_df: pd.DataFrame) -> pd.Series:
     """
-    in the returned Series is_verbal_sum, a key (= qasrl_id + _ + verb_idx) is mapped to the number of generators
+    in the returned Series is_verbal_sum, a key (= qasrl_id + _ + target_idx) is mapped to the number of generators
     for which isVerbal==True.
     """
     reduced_df = annot_df.drop_duplicates(subset=["key", "worker_id"])   # reduced has one row per predicate per worker
@@ -35,7 +35,7 @@ def most_controversial_predicates(annot_df: pd.DataFrame):
     from scipy import stats
     from qanom.annotations.common import normalize, get_sent_map
     sent_map: Dict[str, List[str]] = get_sent_map(annot_df)
-    cols = ['qasrl_id', 'verb_idx', 'verb']
+    cols = ['qasrl_id', 'target_idx', 'verb']
     entropies = annot_df.groupby(cols).is_verbal.agg(lambda s: stats.entropy(normalize(s.value_counts()), base=2))
     print(entropies.sort_values(ascending=False))
 

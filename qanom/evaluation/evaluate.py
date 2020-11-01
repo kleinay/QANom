@@ -53,7 +53,7 @@ def eval_datasets(sys_df, grt_df, sent_map= None) \
     is_nom_counts = BinaryClassificationMetrics.empty()
     all_matchings = []
     for key, sys_response, grt_response in tqdm(yield_paired_predicates(sys_df, grt_df), leave=False):
-        qasrl_id, verb_idx = key
+        qasrl_id, target_idx = key
         tokens = sent_map[qasrl_id]
         local_arg_metric, local_labeled_arg_metric, local_role_metric, local_is_nom_metric, sys_to_grt = \
             evaluate_response(sys_response, grt_response)
@@ -63,7 +63,7 @@ def eval_datasets(sys_df, grt_df, sent_map= None) \
         is_nom_counts += local_is_nom_metric
         all_args = build_all_qa_pairs(sys_response.roles, grt_response.roles, sys_to_grt)
         all_args['qasrl_id'] = qasrl_id
-        all_args['verb_idx'] = verb_idx
+        all_args['target_idx'] = target_idx
         all_args['grt_arg_text'] = all_args.grt_arg.apply(fill_answer, tokens=tokens)
         all_args['sys_arg_text'] = all_args.sys_arg.apply(fill_answer, tokens=tokens)
         all_matchings.append(all_args)
@@ -76,7 +76,7 @@ def eval_datasets(sys_df, grt_df, sent_map= None) \
         all_matchings = all_matchings[['grt_arg_text', 'sys_arg_text',
                                        'grt_role', 'sys_role',
                                        'grt_arg', 'sys_arg',
-                                       'qasrl_id', 'verb_idx']]
+                                       'qasrl_id', 'target_idx']]
 
     return arg_metrics, labeled_arg_metrics, role_metrics, is_nom_counts, all_matchings
 
@@ -91,7 +91,7 @@ def get_recall_and_precision_mistakes(sys_df, grt_df) -> (pd.DataFrame, pd.DataF
     precision_mistakes = all_matchings[all_matchings['grt_role'].isna()]
     precision_mistakes['question'] = precision_mistakes['sys_role'].apply(lambda role: role.text)
     # now produce the subsets from original DataFrames
-    cols = ['qasrl_id', 'verb_idx', 'question']
+    cols = ['qasrl_id', 'target_idx', 'question']
     recall_mistakes_df: pd.DataFrame = grt_df.merge(recall_mistakes[cols], on=cols, how="inner").drop_duplicates(cols)
     precision_mistakes_df: pd.DataFrame = sys_df.merge(precision_mistakes[cols], on=cols, how="inner").drop_duplicates(cols)
 
@@ -103,8 +103,8 @@ def eval_datasets_arg_f1(sys_df, grt_df) -> float:
 
 
 def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Generator[Tuple[Tuple[str,int],Response,Response], None, None]:
-    grt_predicate_ids = grt_df[['qasrl_id', 'verb_idx']].drop_duplicates()
-    sys_predicate_ids = sys_df[['qasrl_id', 'verb_idx']].drop_duplicates()
+    grt_predicate_ids = grt_df[['qasrl_id', 'target_idx']].drop_duplicates()
+    sys_predicate_ids = sys_df[['qasrl_id', 'target_idx']].drop_duplicates()
     # Include only those predicates which are both in grt and in sys
     predicate_ids = pd.merge(grt_predicate_ids, sys_predicate_ids, how='inner')
     for idx, row in predicate_ids.iterrows():
@@ -112,7 +112,7 @@ def yield_paired_predicates(sys_df: pd.DataFrame, grt_df: pd.DataFrame) -> Gener
         grt_qa_pairs = grt_df[filter_ids(grt_df, row)].copy()
         sys_response = decode_response(sys_qa_pairs)
         grt_response = decode_response(grt_qa_pairs)
-        yield (row.qasrl_id, row.verb_idx), sys_response, grt_response
+        yield (row.qasrl_id, row.target_idx), sys_response, grt_response
 
 
 def evaluate_response(sys_response: Response,

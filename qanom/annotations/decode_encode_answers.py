@@ -129,7 +129,7 @@ def decode_argument(arg_str: str) -> List[Argument]:
 
 def decode_qasrl(qasrl_df: pd.DataFrame) -> pd.DataFrame:
     # WHY WHY WHY WE HAVE NULLS??? (see below why)
-    # qasrl_df.dropna(subset=['qasrl_id', 'verb_idx', 'question'], inplace=True)
+    # qasrl_df.dropna(subset=['qasrl_id', 'target_idx', 'question'], inplace=True)
     cols = set(qasrl_df.columns)
     answer_range_cols = set([col for col in cols if "answer_range" in col])
     answer_cols = set([col for col in cols if "answer" in col]) - answer_range_cols
@@ -183,7 +183,7 @@ def encode_response(response: Response, sentence_str: str, **kwargs) -> pd.DataF
     should return a dataFrame capturing the annotations in Response.
     of course, this df will only include annotation-columns and not (other) data- or metadata- columns.
     kwargs can be used to insert other information to the columns of the output dataframe - these key:value
-    pairs will be part of the information that is the same in all the rows of this response (e.g. verb_idx).
+    pairs will be part of the information that is the same in all the rows of this response (e.g. target_idx).
     """
     common_for_rows = dict({'is_verbal' : response.is_verbal, 'verb_form': response.verb_form}, **kwargs)
     def role2rowDict(role: Role) -> dict:

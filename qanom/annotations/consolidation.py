@@ -10,7 +10,7 @@ from qanom.annotations.decode_encode_answers \
     import Argument, Role, Response, encode_response, arg_length
 from qanom.evaluation.metrics import iou
 
-FINAL_COLUMNS = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb',
+FINAL_COLUMNS = ['qasrl_id', 'sentence', 'target_idx', 'key', 'verb',
                  'worker_id', 'assign_id',
                  'is_verbal', 'verb_form',
                  'question', 'answer_range', 'answer',
@@ -30,7 +30,7 @@ def auto_consolidate_gen_annot_df(df: pd.DataFrame) -> pd.DataFrame:
     :return: annotation csv (encoded, not decoded) of the consolidated annotations
     """
     from annotations.decode_encode_answers import SPAN_SEPARATOR
-    data_columns = ['qasrl_id', 'sentence', 'verb_idx', 'key', 'verb', 'verb_form']
+    data_columns = ['qasrl_id', 'sentence', 'target_idx', 'key', 'verb', 'verb_form']
     to_be_conjoined_columns = ['worker_id', 'assign_id']
     """ Rest of columns are annotation-columns - they are to be decoded from consolidated Response.
         (Except from 'answer' which requires both answer_range from Response and sentence.) """

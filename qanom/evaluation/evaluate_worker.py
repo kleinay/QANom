@@ -32,8 +32,8 @@ def main():
         print(f"Evaluating: {worker_id}")
         # Step 2: for each worker, compare the dataset
         # with the reference on common predicate ids.
-        w_pred_ids = worker_df[['qasrl_id', 'verb_idx']].drop_duplicates()
-        w_ref = pd.merge(ref, w_pred_ids, on=['qasrl_id', 'verb_idx'])
+        w_pred_ids = worker_df[['qasrl_id', 'target_idx']].drop_duplicates()
+        w_ref = pd.merge(ref, w_pred_ids, on=['qasrl_id', 'target_idx'])
         res = eval_datasets(worker_df, w_ref)
 
         # Step 3: for each worker, get argument precision and recall, and avg. number of questions per verb.
