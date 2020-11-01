@@ -1,5 +1,4 @@
 
-from argparse import ArgumentParser
 from typing import List, Dict, Tuple, Generator
 
 import pandas as pd
@@ -69,7 +68,7 @@ def eval_datasets(sys_df, grt_df, sent_map= None) \
         all_args['sys_arg_text'] = all_args.sys_arg.apply(fill_answer, tokens=tokens)
         all_matchings.append(all_args)
 
-    # todo verify fix bug - when all_matching is empty, return empty DataFrame
+    # when all_matching is empty, return empty DataFrame
     if not all_matchings:
         all_matchings = pd.DataFrame()
     else:
@@ -229,13 +228,4 @@ def main(proposed_path: str, reference_path: str, sentences_path: str):
     sys_df = read_annot_csv(proposed_path)
     grt_df = read_annot_csv(reference_path)
     print_system_evaluation(sys_df, grt_df)
-
-
-if __name__ == "__main__":
-    ap = ArgumentParser()
-    ap.add_argument("sys_path")
-    ap.add_argument("ground_truth_path")
-    ap.add_argument("sentences_path", default=None)
-    args = ap.parse_args()
-    main(args.sys_path, args.ground_truth_path, args.sentences_path)
 

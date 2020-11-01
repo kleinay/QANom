@@ -3,6 +3,9 @@
 This repository is the reference point for the data and software described in the paper 
 *QANom: Question-Answer driven SRL for Nominalizations*.
 
+## Pre-requisite
+* Python 3.7
+* `pip install requirements.txt`
 
 ## Dataset
 
@@ -41,7 +44,7 @@ You can use the candidate extraction module to for several purposes:
 2. As a pre-processing for the `predicate_detector` model
 3. For custom usage.
 
-### Module's pre-requisite 
+### Module-specific pre-requisite 
 ```bash
 pip install pandas nltk git+git://github.com/pattern3/pattern
 ```
@@ -94,13 +97,14 @@ The `qanom_parser` is essentially the [nrl-qasrl](https://github.com/kleinay/nrl
 To adapt the parser to QANom specifications (e.g. that the verb in the question is not the predicate itself) 
 and format (csv), we have our own `qanom` branch on the `nrl-qasrl` repository. This branch uses the `qanom` package.
 Run `./scripts/setup_parser.sh` to clone the parser into `qanom_parser` directory and prepare its prerequisites.
-Then `cd qanom_parser` to run model-related commands as those described below.
+Then `cd qanom_parser` to run model-related commands as those described for the rest of this section.
 
 ### Training models
-Follow the `README` in `qanom_parser` for instructions on training new QA-SRL models.
+Follow the `README` in `qanom_parser` for instructions on training new verbal QA-SRL models.
 
 A QANom parser is trained using a CSV file (QANom format) as input, with the `QANomReader` DatasetReader 
-(in `nrl/data/dataset_readers/qanom_reader.py`). You should specify the path of the input files in the `jsonnet` config files.
+(in `nrl/data/dataset_readers/qanom_reader.py`). 
+You should specify the path of the input files in the `jsonnet` config files.
 For example: 
 
 ```bash
@@ -116,7 +120,7 @@ python scripts/combine_models.py --span ./models/<span-model-name> --ques ../mod
    
 If you want to use the trained parsers from the Large Scale QA-SRL (2018) and the QANom (2020) papers, 
 run `./qanom_parser/scripts/download_pretrained.sh`. This downloads both `qasrl_parser_elmo` and `qanom_parser_elmo` 
-full models into `./models` directory (which is where we suggest to your own models if you train any). 
+full models into `./models` directory (which is where we suggest to put your own models if you train any). 
 
 ### Inference 
 
@@ -147,17 +151,7 @@ The <output-file> will also be a JSON-lines file, in the following format:
 				{
 					"question": "Who stated something?",
 					"spans": [{"start": 0,"end": 0,"text": "She","score": 0.42914873361587527}],
-					"slots": {
-						"wh": "who",
-						"aux": "_",
-						"subj": "_",
-						"verb_slot_inflection": "Past",
-						"obj": "something",
-						"prep": "_",
-						"obj2": "_",
-						"is_passive": "False",
-						"is_negated": "False"
-					}
+					"slots": {"wh": "who","aux": "_","subj": "_","verb_slot_inflection": "Past","obj": "something","prep": "_","obj2": "_","is_passive": "False","is_negated": "False"}
 				}
 			],
 			"index": 4
@@ -171,14 +165,15 @@ The <output-file> will also be a JSON-lines file, in the following format:
 This is the same output format as of the QA-SRL parser, 
 which is why predicates are called "verbs" even though for QANom they are nominal. 
 
-#### Predicting from and to QANom format
+#### Predicting from and to QANom CSV format
 For running the QANom predictor on CSV-formatted input file - as those outputted by `predicate_detector`, 
 with nominal predicate information (crucially, `target_idx` and `is_verbal` columns) - run:
 ```bash
 python scripts/convert_csv_to_jsonl_input_for_predictor.py <qanom-predicate-data.csv>
 ```
-This will generate a file in the jsonl format expected by `qanom_predictor`. 
+This will generate a file in the JSON-lines format expected by `qanom_predictor`. 
 The output file would have the same name as the input except for the file extension (`qanom-predicate-data.jsonl`).
+
 
 To convert the predictor's output back into QANom's CSV format, run:
 ```bash

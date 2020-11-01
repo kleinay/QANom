@@ -20,8 +20,8 @@ Logic building blocks:
 
 """
 
-import json, os, sys, argparse
-from typing import List, Tuple, Iterable, Dict, Any, Literal
+import json, os, sys
+from typing import List, Tuple, Iterable, Dict, Any
 
 import pandas as pd
 import nltk
@@ -228,7 +228,7 @@ def export_candidate_info_to_csv(candidates_info: List[Dict[str, Any]], csv_out_
 
 # a Utility function to use candidate extraction both as a module as well as script
 def extract_candidate_nouns(input: Any,
-                            input_format: Literal["iterable", "dict", "csv", "jsonl"],
+                            input_format: str,  # Literal["iterable", "dict", "csv", "jsonl"]
                             **resources) -> List[Dict[str, Any]]:
     # get sentences-info into a {sentence_id: <id>, sentence: <str>} dict
     if input_format == 'csv':
@@ -241,14 +241,14 @@ def extract_candidate_nouns(input: Any,
     elif input_format == 'jsonl':
         sentences = get_sentences_from_allennlp_jsonl(input)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError('input_format must be "iterable", "dict", "csv" or "jsonl".')
 
     candidates = get_candidate_nouns(sentences, **resources)
     return candidates
 
 
 def main(args):
-    """ Read from command line arguments. """
+    """ Expecting command line arguments from `argparse`. """
 
     # determine resources
     resources = {"wordnet": args.wordnet,
@@ -265,27 +265,3 @@ def main(args):
     elif args.output_format == 'csv':
         export_candidate_info_to_csv(candidates, args.output_fn)
 
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Use lexical resources to extract nouns that are " +
-                                                 "candidates for being deverbal nominalizations.")
-    parser.add_argument('sentences_fn', type=str)
-    parser.add_argument('output_fn', type=str)
-    parser.add_argument('--read', dest='input_format', choices=['csv', 'jsonl', 'raw'], default='csv',
-                        help="Define the format of sentences_fn to read from. \n"
-                        +"csv is expecting a 'sentence' column and a 'sentence_id|sentenceId|qasrl_id' column.\n"
-                        +"jsonl correspond to AllenNLP predictor's format, where each line is {'sentence': string}.\n"
-                        +"raw is a text file, where each sentence is in a new line.")
-
-    parser.add_argument('--write', dest='output_format', choices=['csv', 'json'], default='json',
-                        help="Define the output format of candidate information. \n"
-                             + "csv is the QANom default format. This is the format which predicate-detector model expects as input. \n"
-                             + "json is used as input in the qasrl-crowdsourcing system when crowdsourcing QANom annotations.")
-    # which resources to use - by default, use all three
-    parser.add_argument('--no-wordnet', dest='wordnet', type=bool, action='store_false')
-    parser.add_argument('--no-catvar', dest='catvar', type=bool, action='store_false')
-    parser.add_argument('--no-affixes', dest='affixes_heuristic', type=bool, action='store_false')
-
-    args = parser.parse_args()
-    main(args)
