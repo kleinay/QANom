@@ -11,8 +11,8 @@ import logging
 
 from qanom.annotations.decode_encode_answers import Question
 
-# create logger with 'spam_application'
-logger = logging.getLogger('spam_application')
+# create logger
+logger = logging.getLogger(__file__)
 logger.setLevel(logging.DEBUG)
 
 core_wh_words = {'what', 'who'}
@@ -124,7 +124,7 @@ def question_to_sem_role(q: Question) -> SemanticRole:
         else:
             return SemanticRole.R2
 
-    if q.wh in core_wh_words and not q.is_passive:
+    if q.wh.lower() in core_wh_words and not q.is_passive:
         if not q.subj:
             return SemanticRole.R0
         elif not q.obj:
@@ -135,7 +135,7 @@ def question_to_sem_role(q: Question) -> SemanticRole:
             logger.warning(f"ungrammatical question: {q} ; all core args are present in core-role active question.")
             return SemanticRole(UNGRAMMATICAL)
 
-    elif q.wh in core_wh_words and q.is_passive:
+    elif q.wh.lower() in core_wh_words and q.is_passive:
         if not q.subj:
             return SemanticRole.R1
         elif not q.obj:
@@ -152,7 +152,7 @@ def question_to_sem_role(q: Question) -> SemanticRole:
                 return get_R2()
 
     # voice (passive/active) has no effect on adjunct questions
-    elif q.wh in adjunct_wh_words:
+    elif q.wh.lower() in adjunct_wh_words:
         if not q.obj2 and q.prep:
             return SemanticRole(q.wh + "_" + q.prep)
         else:
