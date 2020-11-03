@@ -51,7 +51,7 @@ pip install pandas nltk git+git://github.com/pattern3/pattern
 
 ### Usage
 ```bash
-python qanom/candidate_extraction.py <input_file> <output_file> --read csv|josnl|raw --write csv|json [--no-wordnet] [--no-catvar] [--no-affixes]
+python qanom/extract_candidates.py <input_file> <output_file> --read csv|josnl|raw --write csv|json [--no-wordnet] [--no-catvar] [--no-affixes]
 ```
 The script handle three input formats:
 * `csv` (default): a comma-separated file, with a `sentence` column stating the raw string of the sentence, 
@@ -69,7 +69,7 @@ One can deactivate a filter using the `[--no-wordnet] [--no-catvar] [--no-affixe
 
 **Implementation Details**: 
 
-The entry point is the script `candidate_extraction.py`. 
+The entry point is the module file `qanom\candidate_extraction\candidate_extraction.py`. 
 
 The module uses a POS tagger to `pos_tag` the sentence, and filter outs anything except common nouns (`get_common_nouns`). 
 Then, it applies another filter - an "or" combination of two kinds of lexical-based filtering algorithms:
@@ -78,11 +78,12 @@ Then, it applies another filter - an "or" combination of two kinds of lexical-ba
 Being in the list will be considered as being a nominalization candidate.
 
 Filter 1 (`wordnet_util.py` + `catvar.py`) requires 
-wordnet (available via [nltk](https://www.nltk.org/)) and [CatVar](https://clipdemos.umiacs.umd.edu/catvar/) 
-(run `./scripts/download_catvar.sh` for downloading it into the `resources` directory).
+wordnet (available via [nltk](https://www.nltk.org/)) and [CatVar](https://clipdemos.umiacs.umd.edu/catvar/).
+Run `./scripts/download_catvar.sh` for downloading CatVar into the `resources` directory.
 
-Filter 2 (`verb_to_nom.py`) uses [pattern.en](https://www.clips.uantwerpen.be/pages/pattern-en) package (`pip install pattern3`).
- The package is not maintained by the authors and contain a few minor errors that is easy to fix on your local installation.  
+Filter 2 (`verb_to_nom.py`) uses [pattern.en](https://www.clips.uantwerpen.be/pages/pattern-en) package (`pip install git+git://github.com/pattern3/pattern`).
+ The package is not maintained by the authors and contain a few minor errors that is easy to fix on your local installation.
+ The version we are installing here works only for Windows. on Linux, use `--no-affixes` to disable this filter. 
 
 If there are multiple derivationally related verbs, we select the verb that minimizes the edit distance with the noun. 
 

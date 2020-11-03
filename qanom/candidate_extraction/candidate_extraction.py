@@ -30,7 +30,7 @@ import nltk
 project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(project_dir)
 
-from qanom.candidate_extraction import wordnet_util, catvar as catvar_util
+from qanom.candidate_extraction import cand_utils
 from qanom.annotations.common import read_csv
 from qanom.candidate_extraction.verb_to_nom import SuffixBasedNominalizationCandidates as VTN
 
@@ -39,7 +39,7 @@ default_resources = {"wordnet": True,
                      "catvar": True,
                      "affixes_heuristic": True}
 
-vtn = VTN()
+vtn = None # init this global VTN object only if required
 
 # by default, use nltk's default pos_tagger ('averaged_perceptron_tagger'):
 nltk.download('averaged_perceptron_tagger')
@@ -64,6 +64,20 @@ pos_tag = pos_tagger.tag
 
 COMMON_NOUNS_POS = ["NN", "NNS"]
 
+def levenshteinDistance(s1, s2):
+    if len(s1) > len(s2):
+        s1, s2 = s2, s1
+
+    distances = range(len(s1) + 1)
+    for i2, c2 in enumerate(s2):
+        distances_ = [i2+1]
+        for i1, c1 in enumerate(s1):
+            if c1 == c2:
+                distances_.append(distances[i1])
+            else:
+                distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+        distances = distances_
+    return distances[-1]
 
 # load data from corpus
 def get_sentences_from_csv(csv_fn):
@@ -116,17 +130,29 @@ def get_verb_forms_from_lexical_resources(nn,
                                           catvar=True,
                                           affixes_heuristic=True,
                                           filter_distant=False) -> Tuple[List[str], bool]:
-    wordnet_verbs = wordnet_util.convert_pos_by_lemmas(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB) \
-        if wordnet else []
-    # apply distant-verbs filtering on wordnet verbs
-    if filter_distant:
-        wordnet_verbs = list(filter(lambda v: filter_distant_verb_forms(v, nn), wordnet_verbs))
 
-    catvar_verbs = catvar_util.catvariate(nn) if catvar else []
-    affixes_heuristic_verbs = vtn.get_source_verbs(nn) if affixes_heuristic else []
+    wordnet_verbs = []
+    if wordnet:
+        from qanom.candidate_extraction import wordnet_util
+        wordnet_verbs = wordnet_util.convert_pos_by_lemmas(nn, wordnet_util.WN_NOUN, wordnet_util.WN_VERB)
+        # apply distant-verbs filtering on wordnet verbs
+        if filter_distant:
+            wordnet_verbs = list(filter(lambda v: filter_distant_verb_forms(v, nn), wordnet_verbs))
+
+    catvar_verbs = []
+    if catvar:
+        from qanom.candidate_extraction import catvar as catvar_util
+        catvar_verbs = catvar_util.catvariate(nn)
+
+    affixes_heuristic_verbs = []
+    if affixes_heuristic:
+        global vtn
+        if vtn is None: # initialize global vtn only once, if required
+            vtn = VTN()
+        affixes_heuristic_verbs = vtn.get_source_verbs(nn)
     # sort by distance
     vrbs = catvar_verbs + wordnet_verbs + affixes_heuristic_verbs
-    vrbs = [v for v, w in wordnet_util.results_by_edit_distance(nn, vrbs)]
+    vrbs = [v for v, w in cand_utils.results_by_edit_distance(nn, vrbs)]
     if vrbs:
         return vrbs, True
     else:
@@ -141,9 +167,9 @@ def is_candidate_noun(nn: str, **resources) -> bool:
 def filter_distant_verb_forms(verb_form, noun):
     """ Return False for a verb_form whose edit-distance from noun is too large
     (indicating it's probably not morphologically related). """
-    edit_distance = wordnet_util.levenshteinDistance(verb_form, noun)
+    edit_distance = cand_utils.levenshteinDistance(verb_form, noun)
     short_size, long_size = min(len(verb_form),len(noun)), max(len(verb_form),len(noun))
-    edit_distance_without_suffix = wordnet_util.levenshteinDistance(verb_form[:short_size], noun[:short_size])
+    edit_distance_without_suffix = cand_utils.levenshteinDistance(verb_form[:short_size], noun[:short_size])
     avg_size = (len(verb_form)+len(noun))/2.0
     num_chars_maybe_arbitrarily_identical = short_size/3
     if edit_distance_without_suffix > short_size - num_chars_maybe_arbitrarily_identical:
@@ -252,7 +278,7 @@ def main(args):
 
     # determine resources
     resources = {"wordnet": args.wordnet,
-                 "catvar": args.wordnet,
+                 "catvar": args.catvar,
                  "affixes_heuristic": args.affixes_heuristic}
 
     candidates = extract_candidate_nouns(args.sentences_fn,
