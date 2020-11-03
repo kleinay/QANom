@@ -1,4 +1,9 @@
 import pattern.en as pattern
+try:    # pattern's lazy-loaders have a bug (first-time failure)
+    pattern.verbs
+except:
+    pass
+
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
 
