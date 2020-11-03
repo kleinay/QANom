@@ -1,8 +1,4 @@
 import pattern.en as pattern
-try:    # pattern's lazy-loaders have a bug (first-time failure)
-    pattern.verbs
-except:
-    pass
 
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
@@ -32,7 +28,12 @@ all_verbnet_verbs = list(verbnet.lemmas())
 infinitives = sorted(set(all_wn_verbs + all_pattern_verbs + all_verbnet_verbs))
 
 def as_gerund(verb):
-    return pattern.conjugate(verb, aspect=pattern.PROGRESSIVE)
+    try:    # pattern's lazy-loaders have a bug (first-time failure)
+        v_prog = pattern.conjugate(verb, aspect=pattern.PROGRESSIVE)
+    except:
+        v_prog = pattern.conjugate(verb, aspect=pattern.PROGRESSIVE)
+
+    return v_prog
 
 class SuffixBasedNominalizationCandidates:
 
