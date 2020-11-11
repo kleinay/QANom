@@ -89,8 +89,24 @@ If there are multiple derivationally related verbs, we select the verb that mini
 
 
 ## QANom Predicate Detector
-todo
+The `predicate_detector` classifies nominalization candidates (extracted with the `candidate_extraction` module) as verbal vs. non-verbal. 
+We supply a model based on a vanilla BERT-based model implemented by fine-tuning bert-base-cased pre-trained model.
 
+1. Format data
+```bash
+python qanom/predicate_detector/prepare_qanom_data.py [--INPUT_DIR input_dir] [--OUTPUT_DIR
+ output_dir]
+```
+
+2. If you want to train a new model (else, you can skip to the next step and use pretrained model)
+```bash
+sh qanom/predicate_detector/train_nom_id.sh
+```
+
+3. Predict using a trained model
+```bash
+sh qanom/predicate_detector/predict_nom_id.sh
+```
 
 ## QANom Baseline parser 
 The `qanom_parser` is essentially the [nrl-qasrl](https://github.com/kleinay/nrl-qasrl/tree/qanom) parser for QA-SRL, presented in 
