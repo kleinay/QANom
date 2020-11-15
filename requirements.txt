@@ -3,3 +3,7 @@ pandas
 tqdm
 # for candidate extraction, affixes heuristic (verb_to_nom.py):
 git+git://github.com/pattern3/pattern
+# for predicate detector
+transformers==2.11.0
+torch==1.4
+sklearn

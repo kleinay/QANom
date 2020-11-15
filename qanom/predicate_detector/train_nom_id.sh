@@ -11,4 +11,5 @@ python3.6 qanom/predicate_detector/run_nom_id.py \
 --do_eval \
 --do_predict \
 --evaluate_during_training \
---max_seq_length 400
+--max_seq_length 400 \
+--labels qanom/predicate_detector/labels.txt

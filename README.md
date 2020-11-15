@@ -90,9 +90,11 @@ If there are multiple derivationally related verbs, we select the verb that mini
 
 ## QANom Predicate Detector
 The `predicate_detector` classifies nominalization candidates (extracted with the `candidate_extraction` module) as verbal vs. non-verbal. 
-We supply a model based on a vanilla BERT-based model implemented by fine-tuning bert-base-cased pre-trained model.
+We supply a [model](https://drive.google.com/file/d/1qiyQCL19ktZETbPWk_5TT2oCFSFYk6QJ/view?usp=sharing) based on a vanilla BERT-based model 
+implemented by fine-tuning bert-base-cased pre-trained model on QANom dataset.
 
-1. Format data
+1. Format data to generate files in CoNLL format given the CSV files produced during candidate
+ extraction.
 ```bash
 python qanom/predicate_detector/prepare_qanom_data.py [--INPUT_DIR input_dir] [--OUTPUT_DIR
  output_dir]
