@@ -25,6 +25,7 @@ from typing import List, Tuple, Iterable, Dict, Any
 
 import pandas as pd
 import nltk
+from nltk.downloader import Downloader
 
 # add project basic directory to sys.path, in order to refer qanom as a package from anywhere
 project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -42,7 +43,11 @@ default_resources = {"wordnet": True,
 vtn = None # init this global VTN object only if required
 
 # by default, use nltk's default pos_tagger ('averaged_perceptron_tagger'):
-nltk.download('averaged_perceptron_tagger')
+tagger_package = 'averaged_perceptron_tagger'
+nltk_downloader = Downloader()
+if (not nltk_downloader.is_installed(tagger_package)):
+    nltk.download(tagger_package)
+    
 pos_tag = nltk.pos_tag
 """
 Alternatively, when extracting candidates for crowdsourcing QANom annotations through the qasrl-crowdsourcing project,
