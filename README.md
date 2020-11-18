@@ -110,6 +110,14 @@ sh qanom/predicate_detector/train_nom_id.sh
 sh qanom/predicate_detector/predict_nom_id.sh
 ```
 
+4. Convert CoNLL file produced by predicate detector to CSV format given the CSV file
+ produced during candidate extraction.
+```bash
+python qanom/predicate_detector/convert_conll_to_qanom_csv.py [--INPUT_CONLL_FILE input_conll_file]
+                                     [--INPUT_CSV_FILE input_csv_file]
+                                     [--OUTPUT_FILE output_file]
+```
+
 ## QANom Baseline parser 
 The `qanom_parser` is essentially the [nrl-qasrl](https://github.com/kleinay/nrl-qasrl/tree/qanom) parser for QA-SRL, presented in 
 [*Large-Scale QA-SRL Parsing* (FitzGerald et. al., 2018)](https://www.aclweb.org/anthology/P18-1191/).
