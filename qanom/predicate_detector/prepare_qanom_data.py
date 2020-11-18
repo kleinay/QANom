@@ -3,6 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 import argparse
 
+
 def csv2conll(csv_path, conll_path):
     id2sent = dict()
     id2nom = defaultdict(lambda: defaultdict(str))
@@ -10,7 +11,7 @@ def csv2conll(csv_path, conll_path):
         csv_reader = csv.DictReader(csv_file, delimiter=',')
         for row in csv_reader:
             qasrl_id = row['qasrl_id']
-            target_idx = int(row['target_idx']) # taget ID
+            target_idx = int(row['target_idx'])  # taget ID
             sentence = row['sentence']
             if qasrl_id not in id2sent:
                 id2sent[qasrl_id] = sentence
@@ -61,10 +62,8 @@ if args.INPUT_FILE is not None:
 else:
     if args.INPUT_DIR is not None:
         for split in {'dev', 'test', 'train'}:
-            inputs.append(Path(args.INPUT_DIR, split+'.csv'))
-            outputs.append(Path(args.OUTPUT_DIR, split+'.txt'))
-      
-
+            inputs.append(Path(args.INPUT_DIR, split + '.csv'))
+            outputs.append(Path(args.OUTPUT_DIR, split + '.txt'))
 
 for (csv_path, conll_path) in zip(inputs, outputs):
     csv2conll(csv_path, conll_path)
