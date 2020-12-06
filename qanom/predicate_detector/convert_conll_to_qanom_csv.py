@@ -21,17 +21,18 @@ def conll2csv(conll_path, input_csv_path, output_csv_path):
 
     if len(sentence) > 0:
         sent2tag[' '.join(sentence)] = tags
-
+    
     with open(input_csv_path, encoding='utf8') as csv_file, open(output_csv_path, 'w',
                                                                  encoding='utf8') as csv_pred_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         csv_writer = csv.writer(csv_pred_file,delimiter=',')
         header = next(csv_reader)  # skip header
+        header.append('is_verbal')
         csv_writer.writerow(header)
         for row in csv_reader:
-            target_idx = row[2]
-            sentence = row[1]
-            row[6] = sent2tag[sentence][int(target_idx)]
+            target_idx = int(row[1])
+            sentence = row[2]
+            row.append(sent2tag[sentence][target_idx])
             csv_writer.writerow(row)
 
 
