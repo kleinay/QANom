@@ -249,6 +249,7 @@ def export_candidate_info_to_csv(candidates_info: List[Dict[str, Any]], csv_out_
     df['sentence'] = df.apply(lambda r: ' '.join(r['tokSent']), axis=1)
     df['sentence'] = df.apply(lambda r: ' '.join(r['tokSent']), axis=1)
     df['noun'] = df.apply(lambda r: r['tokSent'][int(r['targetIdx'])], axis=1)
+    df['verb_form'] = df.apply(lambda r: r['verbForms'][0], axis=1)
     df = df.drop(['tokSent', 'verbForms'], axis='columns')
     df = df.rename(mapper={'targetIdx': 'target_idx',
                            'sentenceId': 'qasrl_id'},
