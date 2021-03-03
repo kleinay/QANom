@@ -1,7 +1,7 @@
 # QANom - Annotating Nominal Predicates with QA-SRL
 
 This repository is the reference point for the data and software described in the paper 
-*QANom: Question-Answer driven SRL for Nominalizations*.
+[*QANom: Question-Answer driven SRL for Nominalizations*](https://www.aclweb.org/anthology/2020.coling-main.274/) (COLING 2020).
 
 ## Pre-requisite
 * Python 3.7
