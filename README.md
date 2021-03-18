@@ -10,7 +10,7 @@ This repository is the reference point for the data and software described in th
 ## Dataset
 
 The original QANom Dataset can be downloaded from this
- [google drive directory](https://drive.google.com/drive/folders/1MOA0Xkcz7Dezj5vJyq8YOM6lw85RR9xj).
+ [google drive directory](https://drive.google.com/drive/folders/15PHKVdPm65ysgdkV47z6J_73kETk7_of).
 
 ## Crowdsourcing QANom via MTurk
 
