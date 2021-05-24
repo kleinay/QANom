@@ -167,7 +167,7 @@ for which it will generate QA annotations, along with their corresponding verbs.
 Also note that no tokenizer model is applied on the sentence string - 
 we assume the sentence is pre-tokenized (and joined with spaces).
   
-The <output-file> will also be a JSON-lines file, in the following format:
+The output-file will also be a JSON-lines file, in the following format:
 ```json
 {
 	"words": ["She", "said", "in", "a", "statement", ":", "``", "With", "an", "amazing", "portfolio", "of", "cars", "and", "trucks", "and", "the", "strongest", "financial", "performance", "in", "our", "recent", "history", ",", "this", "is", "an", "exciting", "time", "at", "today", "'s", "GM", "."],
