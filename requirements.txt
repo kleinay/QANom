@@ -4,6 +4,6 @@ tqdm
 # for candidate extraction, affixes heuristic (verb_to_nom.py):
 git+https://github.com/NicolasBizzozzero/pattern@master#egg=pattern
 # for predicate detector
-transformers==2.11.0
-torch==1.4
+transformers>=2.11.0
+torch>=1.4
 sklearn

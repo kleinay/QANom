@@ -11,7 +11,7 @@ import sys
 import qanom.config
 
 # globals
-qanom_repo_root = qanom.config.repository_root_path 	# location of the QANom project root directory
+qanom_repo_root = os.path.dirname(qanom.config.qanom_package_root_path) 	# location of the QANom project root directory
 							# (where the qanom package and virtual env resides)
 assert os.path.isdir(qanom_repo_root), "Wrong location for QANom repository"
 							

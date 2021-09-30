@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
-import sys
+import sys, os
 import config
-sys.path.append(config.repository_root_path)
+sys.path.append(os.path.dirname(config.qanom_package_root_path))
 
 if __name__ == "__main__":
     ap = ArgumentParser()
