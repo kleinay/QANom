@@ -14,7 +14,7 @@ If you want to install from source, clone this repository and then install requi
 ```bash
 git clone https://github.com/kleinay/QANom.git
 cd QANom
-pip install requirements.txt`
+pip install requirements.txt
 ```
 ## Dataset
 
