@@ -5,12 +5,28 @@ This repository is the reference point for the data and software described in th
 
 ## Pre-requisite
 * Python 3.7
-* `pip install requirements.txt`
 
+## Installation
+From pypi:
+`pip install qanom`
+
+If you want to install from source, clone this repository and then install requirements (`:
+```bash
+git clone https://github.com/kleinay/QANom.git
+cd QANom
+pip install requirements.txt`
+```
 ## Dataset
 
 The original QANom Dataset can be downloaded from this
  [google drive directory](https://drive.google.com/drive/folders/15PHKVdPm65ysgdkV47z6J_73kETk7_of).
+ 
+ Alternatively, if you are working with Huggingface's [Datasets](https://github.com/huggingface/datasets) library or are willing to install it (`pip install datasets`), 
+ you can retrieve the QANon datasets by:
+ ```python
+ import datasets
+ qanom_dataset = datasets.load_dataset('kleinay/qanom')
+ ```
 
 ## Crowdsourcing QANom via MTurk
 
@@ -87,6 +103,9 @@ Filter 2 (`verb_to_nom.py`) uses [pattern.en](https://www.clips.uantwerpen.be/pa
 
 If there are multiple derivationally related verbs, we select the verb that minimizes the edit distance with the noun. 
 
+# Models
+
+The instructions in this section assume you have cloned the QANom repo, and your working directory is the QANom directory. 
 
 ## QANom Predicate Detector
 The `predicate_detector` classifies nominalization candidates (extracted with the `candidate_extraction` module) as verbal vs. non-verbal. 
@@ -100,17 +119,17 @@ python qanom/predicate_detector/prepare_qanom_data.py [--INPUT_DIR input_dir] [-
  output_dir]
 ```
 
-2. If you want to train a new model (else, you can skip to the next step and use pretrained model)
+2. If you want to train a new model (else, you can skip to the next step and use the pretrained model):
 ```bash
 sh qanom/predicate_detector/train_nom_id.sh
 ```
 
-3. Predict using a trained model
+3. Predict using a trained model:
 ```bash
 sh qanom/predicate_detector/predict_nom_id.sh
 ```
 
-4. Convert CoNLL file produced by predicate detector to CSV format given the CSV file
+4. Convert CoNLL file produced by predicate detector to QANom's CSV format given the CSV input file:
  produced during candidate extraction.
 ```bash
 python qanom/predicate_detector/convert_conll_to_qanom_csv.py [--INPUT_CONLL_FILE input_conll_file]
