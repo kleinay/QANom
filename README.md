@@ -10,7 +10,7 @@ This repository is the reference point for the data and software described in th
 From pypi:
 `pip install qanom`
 
-If you want to install from source, clone this repository and then install requirements (`:
+If you want to install from source, clone this repository and then install requirements:
 ```bash
 git clone https://github.com/kleinay/QANom.git
 cd QANom
