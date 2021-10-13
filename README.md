@@ -22,7 +22,7 @@ The original QANom Dataset can be downloaded from this
  [google drive directory](https://drive.google.com/drive/folders/15PHKVdPm65ysgdkV47z6J_73kETk7_of).
  
  Alternatively, if you are working with Huggingface's [Datasets](https://github.com/huggingface/datasets) library or are willing to install it (`pip install datasets`), 
- you can retrieve the QANon datasets by:
+ you can retrieve the QANom datasets by:
  ```python
  import datasets
  qanom_dataset = datasets.load_dataset('kleinay/qanom')
