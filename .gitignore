@@ -4,7 +4,6 @@
 *.ipynb
 *.tmp
 *.tar.gz
-qanom/resources/*
 qanom_parser/
 /model/predicate_detector/
 model/predicate_detector

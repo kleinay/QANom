@@ -1,4 +1,4 @@
-import config
+from qanom import config
 import os
 
 catvar_corpus_relative_path = "catvar/catvar21.signed" # should be in 'resources' directory
