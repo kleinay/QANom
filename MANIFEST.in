@@ -1,3 +1,5 @@
-include qanom/resources/*
+include qanom/resources/catvar21.signed
+include qanom/resources/LICENSE.txt
+include qanom/resources/README.md
 include qanom/version.txt
 include README.md
