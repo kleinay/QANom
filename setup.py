@@ -17,13 +17,13 @@ setuptools.setup(
     url="https://github.com/kleinay/QANom",
     packages=setuptools.find_packages(),
     install_requires=[
+        'transformers>=2.11.0',
+        'torch>=1.4',
+        'Docassemble-Pattern',
         'nltk',
         'pandas',
         'tqdm',
         'sklearn',
-        'transformers>=2.11.0',
-        'torch>=1.4',
-        'Docassemble-Pattern'
     ],
     package_data={
         "": ["qanom/resources/catvar/catvar21.signed", "qanom/resources/catvar/LICENCE.txt", "qanom/resources/catvar/README.md"],
