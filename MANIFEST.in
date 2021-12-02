@@ -1,3 +1,3 @@
 include qanom/resources/*
-include version.txt
+include qanom/version.txt
 include README.md
