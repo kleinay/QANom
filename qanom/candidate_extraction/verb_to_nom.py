@@ -1,8 +1,20 @@
 import docassemble_pattern.en as pattern
 
-from nltk.corpus import wordnet as wn
-from nltk.corpus import verbnet
+import nltk
+try:
+    from nltk.corpus import wordnet as wn
+except LookupError:
+    print("Downloading wordnet...")
+    nltk.download("wordnet")
+    from nltk.corpus import wordnet as wn
 
+try:    
+    from nltk.corpus import verbnet
+except LookupError:
+    print("Downloading verbnet...")
+    nltk.download("verbnet")
+    from nltk.corpus import verbnet
+    
 from qanom import utils
 
 # Lists of verbs - take union as verb-seed
