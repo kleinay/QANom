@@ -1,4 +1,4 @@
-import pattern.en as pattern
+import docassemble_pattern.en as pattern
 
 from nltk import wordnet as wn
 from nltk.corpus import verbnet
@@ -13,10 +13,11 @@ all_pattern_verbs = []
 Original pattern package have bugs in this verbs.infinitives class.
 For this reason, in the annotation pipeline, we didn't use their verb seed. 
 Here we are installing pattern from git, so bug is fixed. 
-If you wish for consistency with original QANom dataset, leave this line commented.
+If you wish for consistency with original QANom dataset, leave the next line commented out.
 If you care only for better coverage, uncomment the following line:
 """
 # all_pattern_verbs = list(pattern.verbs.infinitives)
+
 # from wordnet - 8.7K verbs
 all_wn_verbs = sorted(set(l.name()
                 for v_syn in wn.wordnet.all_synsets(pos="v")

@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="qanom",
-    version="0.0.4",
+    version="0.0.5",
     author="Ayal Klein",
     author_email="ayal.s.klein@gmail.com",
     description="package for Question-Answer driven Semantic Role Labeling for Nominalizations (QANom)",
@@ -19,7 +19,8 @@ setuptools.setup(
         'tqdm',
         'sklearn',
         'transformers>=2.11.0',
-        'torch>=1.4'
+        'torch>=1.4',
+        'Docassemble-Pattern'
     ],
     package_data={
         "": ["resources/catvar/catvar21.signed", "resources/catvar/LICENCE.txt", "resources/catvar/README.md"],
