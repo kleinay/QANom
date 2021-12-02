@@ -1,19 +1,19 @@
 import docassemble_pattern.en as pattern
 
 import nltk
+from nltk.corpus import wordnet as wn
 try:
-    from nltk.corpus import wordnet as wn
+    wn.all_synsets
 except LookupError:
     print("Downloading wordnet...")
     nltk.download("wordnet")
-    from nltk.corpus import wordnet as wn
 
-try:    
-    from nltk.corpus import verbnet
+from nltk.corpus import verbnet
+try:  
+    verbnet.lemmas  
 except LookupError:
     print("Downloading verbnet...")
     nltk.download("verbnet")
-    from nltk.corpus import verbnet
     
 from qanom import utils
 
