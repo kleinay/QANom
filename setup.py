@@ -3,9 +3,12 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("version.txt", "r") as f:
+    version = f.read().strip()
+
 setuptools.setup(
     name="qanom",
-    version="0.0.5",
+    version=version,
     author="Ayal Klein",
     author_email="ayal.s.klein@gmail.com",
     description="package for Question-Answer driven Semantic Role Labeling for Nominalizations (QANom)",
@@ -23,7 +26,7 @@ setuptools.setup(
         'Docassemble-Pattern'
     ],
     package_data={
-        "": ["resources/catvar/catvar21.signed", "resources/catvar/LICENCE.txt", "resources/catvar/README.md"],
+        "": ["qanom/resources/catvar/catvar21.signed", "qanom/resources/catvar/LICENCE.txt", "qanom/resources/catvar/README.md"],
     },
     include_package_data=True,
     classifiers=[

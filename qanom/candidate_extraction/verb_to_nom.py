@@ -1,6 +1,6 @@
 import docassemble_pattern.en as pattern
 
-from nltk import wordnet as wn
+from nltk.corpus import wordnet as wn
 from nltk.corpus import verbnet
 
 from qanom import utils
@@ -20,7 +20,7 @@ If you care only for better coverage, uncomment the following line:
 
 # from wordnet - 8.7K verbs
 all_wn_verbs = sorted(set(l.name()
-                for v_syn in wn.wordnet.all_synsets(pos="v")
+                for v_syn in wn.all_synsets(pos="v")
                 for l in v_syn.lemmas()
                 if "_" not in l.name()))
 # from verbnet - 3.6K verbs
