@@ -3,7 +3,7 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-with open("version.txt", "r") as f:
+with open("qanom/version.txt", "r") as f:
     version = f.read().strip()
 
 setuptools.setup(
