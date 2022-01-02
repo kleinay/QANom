@@ -25,7 +25,7 @@ The original QANom Dataset can be downloaded from this
  you can retrieve the QANom datasets by:
  ```python
  import datasets
- qanom_dataset = datasets.load_dataset('kleinay/qanom')
+ qanom_dataset = datasets.load_dataset('biu-nlp/qanom')
  ```
 
 ## Crowdsourcing QANom via MTurk
