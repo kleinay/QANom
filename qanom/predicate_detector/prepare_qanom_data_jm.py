@@ -46,4 +46,4 @@ parser.add_argument('--OUTPUT_DIR', type=str, default='output/predicate_detector
 args = parser.parse_args()
 
 for mode in {'dev', 'test', 'train'}:
-    csv2conll(args.INPUT_DIR+mode + '.csv', args.OUTPUT_DIR+mode + '.txt')
+    csv2conll(f"{args.INPUT_DIR}/annot.{mode}.csv", f"{args.OUTPUT_DIR}/{mode}.txt")

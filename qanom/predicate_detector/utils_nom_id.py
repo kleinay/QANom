@@ -4,7 +4,7 @@ import logging
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from filelock import FileLock
 
@@ -12,6 +12,9 @@ from transformers import PreTrainedTokenizer, is_tf_available, is_torch_availabl
 
 logger = logging.getLogger(__name__)
 
+def get_tmp_dir():
+    home = os.path.expanduser('~')
+    return os.environ.get("TMP", home + "/tmp")
 
 @dataclass
 class InputExample:
@@ -67,35 +70,69 @@ if is_torch_available():
 
         def __init__(
             self,
-            data_dir: str,
+            data_dir: Optional[str],
             tokenizer: PreTrainedTokenizer,
-            labels: List[str],
+            labels: Optional[List[str]],
             model_type: str,
             max_seq_length: Optional[int] = None,
             overwrite_cache=False,
             mode: Split = Split.train,
+            # or init from features and not data_dir. this case we'll use data_dir as cache_dir or set it to tmp dir
+            features: Optional[List[InputFeatures]] = None
         ):
+            if not data_dir:
+                assert features is not None, "Must provide either `data_dir` with dataset files, or `features` to init dataset from."
+                data_dir = get_tmp_dir()
+                os.makedirs(data_dir, exist_ok=True)
             # Load data features from cache or dataset file
             cached_features_file = os.path.join(
                 data_dir, "cached_{}_{}_{}".format(mode.value, tokenizer.__class__.__name__, str(max_seq_length)),
             )
+            
+            if features is None: # init from data_dir
+                # Make sure only the first process in distributed training processes the dataset,
+                # and the others will use the cache.
+                lock_path = cached_features_file + ".lock"
+                with FileLock(lock_path):
 
-            # Make sure only the first process in distributed training processes the dataset,
-            # and the others will use the cache.
-            lock_path = cached_features_file + ".lock"
-            with FileLock(lock_path):
+                    if os.path.exists(cached_features_file) and not overwrite_cache:
+                        logger.info(f"Loading features from cached file {cached_features_file}")
+                        self.features = torch.load(cached_features_file)
+                    else:
+                        logger.info(f"Creating features from dataset file at {data_dir}")
+                        examples = read_examples_from_file(data_dir, mode)
+                        # TODO clean up all this to leverage built-in features of tokenizers
+                        self.features = convert_examples_to_features(
+                            examples,
+                            labels,
+                            max_seq_length,
+                            tokenizer,
+                            cls_token_at_end=bool(model_type in ["xlnet"]),
+                            # xlnet has a cls token at the end
+                            cls_token=tokenizer.cls_token,
+                            cls_token_segment_id=2 if model_type in ["xlnet"] else 0,
+                            sep_token=tokenizer.sep_token,
+                            sep_token_extra=bool(model_type in ["roberta"]),
+                            # roberta uses an extra separator b/w pairs of sentences, cf. github.com/pytorch/fairseq/commit/1684e166e3da03f5b600dbb7855cb98ddfcd0805
+                            pad_on_left=bool(tokenizer.padding_side == "left"),
+                            pad_token=tokenizer.pad_token_id,
+                            pad_token_segment_id=tokenizer.pad_token_type_id,
+                            pad_token_label_id=NomIdDataset.pad_token_label_id,
+                        )
+                        logger.info(f"Saving features into cached file {cached_features_file}")
+                        torch.save(self.features, cached_features_file)
+            
+            else: # init from features 
+                self.features = features
+                torch.save(self.features, cached_features_file)
 
-                if os.path.exists(cached_features_file) and not overwrite_cache:
-                    logger.info(f"Loading features from cached file {cached_features_file}")
-                    self.features = torch.load(cached_features_file)
-                else:
-                    logger.info(f"Creating features from dataset file at {data_dir}")
-                    examples = read_examples_from_file(data_dir, mode)
-                    # TODO clean up all this to leverage built-in features of tokenizers
-                    self.features = convert_examples_to_features(
-                        examples,
-                        labels,
-                        max_seq_length,
+        @classmethod
+        def from_examples(cls, input_examples: Iterable[InputExample], tokenizer, model_type: str = "bert") -> 'NomIdDataset':
+            all_labels = get_labels(None)
+            features = convert_examples_to_features(
+                        input_examples,
+                        all_labels,
+                        128,
                         tokenizer,
                         cls_token_at_end=bool(model_type in ["xlnet"]),
                         # xlnet has a cls token at the end
@@ -107,11 +144,16 @@ if is_torch_available():
                         pad_on_left=bool(tokenizer.padding_side == "left"),
                         pad_token=tokenizer.pad_token_id,
                         pad_token_segment_id=tokenizer.pad_token_type_id,
-                        pad_token_label_id=self.pad_token_label_id,
+                        pad_token_label_id=NomIdDataset.pad_token_label_id,
                     )
-                    logger.info(f"Saving features into cached file {cached_features_file}")
-                    torch.save(self.features, cached_features_file)
-
+            return NomIdDataset(features=features,
+                                data_dir=None,
+                                tokenizer=tokenizer,
+                                labels=all_labels,
+                                model_type=model_type,
+                                mode=Split.test,
+                                )
+        
         def __len__(self):
             return len(self.features)
 
@@ -244,7 +286,7 @@ def read_examples_from_file(data_dir, mode: Union[Split, str]) -> List[InputExam
 
 def convert_examples_to_features(
     examples: List[InputExample],
-    label_list: List[str],
+    label_list: Optional[List[str]],
     max_seq_length: int,
     tokenizer: PreTrainedTokenizer,
     cls_token_at_end=False,
@@ -267,7 +309,7 @@ def convert_examples_to_features(
     """
     # TODO clean up all this to leverage built-in features of tokenizers
 
-    label_map = {label: i for i, label in enumerate(label_list)}
+    label_map = {label: i for i, label in enumerate(label_list)} if label_list is not None else None 
 
     features = []
     for (ex_index, example) in enumerate(examples):
@@ -275,18 +317,18 @@ def convert_examples_to_features(
             logger.info("Writing example %d of %d", ex_index, len(examples))
 
         tokens = []
-        label_ids = []
-        for word, label in zip(example.words, example.labels):
+        label_ids = []  # keep empty if no labels
+        for word, label in zip(example.words, example.labels or [None]*len(example.words)):
             word_tokens = tokenizer.tokenize(word)
-
             # bert-base-multilingual-cased sometimes output "nothing ([]) when calling tokenize with just a space.
             if len(word_tokens) > 0:
                 tokens.extend(word_tokens)
                 # Use the real label id for the first token of the word, and padding ids for the remaining tokens
-                if label != 'O':
-                    label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
-                else:
-                    label_ids.extend([pad_token_label_id] * (len(word_tokens)))
+                if label is not None:
+                    if label != 'O':
+                        label_ids.extend([label_map[label]] + [pad_token_label_id] * (len(word_tokens) - 1))
+                    else:
+                        label_ids.extend([pad_token_label_id] * (len(word_tokens)))
 
         # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
         special_tokens_count = tokenizer.num_special_tokens_to_add()
@@ -351,7 +393,8 @@ def convert_examples_to_features(
         assert len(input_ids) == max_seq_length
         assert len(input_mask) == max_seq_length
         assert len(segment_ids) == max_seq_length
-        assert len(label_ids) == max_seq_length
+        if example.labels is not None:
+            assert len(label_ids) == max_seq_length  
 
         if ex_index < 5:
             logger.info("*** Example ***")
@@ -360,20 +403,21 @@ def convert_examples_to_features(
             logger.info("input_ids: %s", " ".join([str(x) for x in input_ids]))
             logger.info("input_mask: %s", " ".join([str(x) for x in input_mask]))
             logger.info("segment_ids: %s", " ".join([str(x) for x in segment_ids]))
-            logger.info("label_ids: %s", " ".join([str(x) for x in label_ids]))
+            if example.labels is not None:
+                logger.info("label_ids: %s", " ".join([str(x) for x in label_ids]))
 
         if "token_type_ids" not in tokenizer.model_input_names:
             segment_ids = None
 
         features.append(
             InputFeatures(
-                input_ids=input_ids, attention_mask=input_mask, token_type_ids=segment_ids, label_ids=label_ids
+                input_ids=input_ids, attention_mask=input_mask, token_type_ids=segment_ids, label_ids=label_ids if example.labels is not None else None
             )
         )
     return features
 
 
-def get_labels(path: str) -> List[str]:
+def get_labels(path: Optional[str]) -> List[str]:
     if path:
         with open(path, "r") as f:
             labels = f.read().splitlines()
