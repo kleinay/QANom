@@ -47,7 +47,7 @@ class NominalizationDetector():
         positive_lbl_id = 0     # because label_map[0] == 'True' 
         negative_lbl_id = 1     # because label_map[1] == 'False' 
         
-        tokenized = self.tokenizer(raw_sentences, return_tensors="pt")
+        tokenized = self.tokenizer(raw_sentences, return_tensors="pt", padding=True)
         logits = self.model(tokenized.input_ids).logits
         # compose binary probability as the mean of positive label's prob with complement of neg. label's prob.
         positive_probability = logits[:,:,positive_lbl_id].sigmoid()   # probability of the "true" label (index 0 in axis-2)
@@ -58,15 +58,14 @@ class NominalizationDetector():
         batch_size, seq_len = preds.shape # same shape as probability
         predicate_lists = [{} for _ in range(batch_size)]
         for i in range(batch_size):
-            cand_info = candidate_infos[i]['tokSent']
+            row = input_sent_df.iloc[i]
             # get mapping of word to tokens (for using indexes from dataset)
-            wordId2numOfTokens = [len(self.tokenizer.tokenize(word)) for word in cand_info]
+            wordId2numOfTokens = [len(self.tokenizer.tokenize(word)) for word in row.words]
             wordId2firstTokenId, curr_tok_id = [], 1
             for wordId in range(len(wordId2numOfTokens)):
                 wordId2firstTokenId.append(curr_tok_id)
                 curr_tok_id += wordId2numOfTokens[wordId]
             # get dict of all candidates to prediction (on first token of word)
-            row = input_sent_df.iloc[i]
             predicate_lists[i] = [{"predicate_idx": idx,
                                    "predicate": row.words[idx],
                                    "predicate_detector_prediction": preds[i][wordId2firstTokenId[idx]].item(),
