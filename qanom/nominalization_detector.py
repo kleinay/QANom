@@ -2,17 +2,14 @@
 A unified class for detecting "verbal" nominalizations from raw text -
 wraps both `candidate_extraction` and `predicate_detector`
 """
-from typing import Iterable, List, Dict, Tuple, Any
+from typing import Iterable, List, Dict, Any
 import sys, os
-
-from nltk import probability
-# tmp:
-sys.path.append("/home/kleinay/QANom")
-
-from qanom.candidate_extraction.candidate_extraction import extract_candidate_nouns
-from transformers import AutoModelForTokenClassification, AutoTokenizer, AutoConfig
-import torch
+from transformers import AutoModelForTokenClassification, AutoTokenizer
 import pandas as pd
+
+import config
+sys.path.append(os.path.dirname(config.qanom_package_root_path))
+from qanom.candidate_extraction.candidate_extraction import extract_candidate_nouns
 
 def dict_without(orig_dict: Dict[Any, Any], keys_to_remove: Iterable[Any]) -> Dict[Any, Any]:
     new_dict = orig_dict.copy()
