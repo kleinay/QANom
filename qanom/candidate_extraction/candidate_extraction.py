@@ -28,7 +28,7 @@ import nltk
 from nltk.downloader import Downloader
 
 # add project basic directory to sys.path, in order to refer qanom as a package from anywhere
-project_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+project_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 sys.path.append(project_dir)
 
 from qanom.candidate_extraction import cand_utils
@@ -260,16 +260,18 @@ def export_candidate_info_to_csv(candidates_info: List[Dict[str, Any]], csv_out_
 
 # a Utility function to use candidate extraction both as a module as well as script
 def extract_candidate_nouns(input: Any,
-                            input_format: str,  # Literal["iterable", "dict", "csv", "jsonl"]
+                            input_format: str,  # Literal["iterable", "raw", "dict", "csv", "jsonl"]
                             **resources) -> List[Dict[str, Any]]:
-    # get sentences-info into a {sentence_id: <id>, sentence: <str>} dict
-    if input_format == 'csv':
-        sentences = get_sentences_from_csv(input)
+    # get sentences-info into a {sentence_id: sentence} dict
+    if input_format == "dict":
+        sentences = input
+    elif input_format == "iterable":
+        sentences = get_sentences_from_iterable(input)
     elif input_format == 'raw':
         with open(input) as fin:
             sentences = get_sentences_from_iterable(fin.read().splitlines())
-    elif input_format == "iterable":
-        sentences = get_sentences_from_iterable(input)
+    elif input_format == 'csv':
+        sentences = get_sentences_from_csv(input)
     elif input_format == 'jsonl':
         sentences = get_sentences_from_allennlp_jsonl(input)
     else:
