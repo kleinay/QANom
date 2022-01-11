@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
 import sys, os
-from qanom import config
 
 if __name__ == "__main__":
     ap = ArgumentParser()
