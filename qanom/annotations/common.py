@@ -79,7 +79,7 @@ def get_predicate_str_label(df: pd.DataFrame) -> str:
 def set_key_column(annot_df: pd.DataFrame):
     """ Add 'key' column (predicate unique identifier) """
     pred_idx_label = get_predicate_idx_label(annot_df)
-    if 'key' not in annot_df.columns:
+    if 'key' not in annot_df.columns and len(annot_df):
         annot_df['key'] = annot_df.apply(lambda r: r['qasrl_id']+"_"+str(r[pred_idx_label]), axis=1)
 
 
