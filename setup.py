@@ -25,7 +25,8 @@ setuptools.setup(
         'sklearn',
     ],
     package_data={
-        "": ["qanom/resources/catvar/catvar21.signed", "qanom/resources/catvar/LICENCE.txt", "qanom/resources/catvar/README.md"],
+        "": ["qanom/resources/catvar/catvar21.signed", "qanom/resources/catvar/LICENCE.txt", "qanom/resources/catvar/README.md", 
+             "qanom/resources/verb-to-nom-heuristic/nom_verb_pairs.txt"],
     },
     include_package_data=True,
     classifiers=[
