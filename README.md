@@ -1,7 +1,19 @@
 # QANom - Annotating Nominal Predicates with QA-SRL
 
+QANom is a research project aiming for a natural representation of nominalization's predicate-argument relations.
+It extends the Question Answer driven Semantic Role Labeling (QASRL) framework (see [website](http://qasrl.org/)), which tackled verbal predicates,
+to the more challenging space of deverbal nominalizations. 
+
 This repository is the reference point for the data and software described in the paper 
 [*QANom: Question-Answer driven SRL for Nominalizations*](https://www.aclweb.org/anthology/2020.coling-main.274/) (COLING 2020).
+To find information for replicating the work described by the QANom paper (crowdsourcing a QANom dataset, identifying nominalization candidates, training and evaluating the baseline models), please refer to the [paper_reference_readme.md](paper_reference_readme.md).
+
+The repo also consists software for using QANom downstream. 
+This mainly includes pipelines for easy usage of the [nominalization detection model](#nominalization-detection-model) and of the [QANom parsers](#qanom-sequence-to-sequence-model). 
+This README will guide you through using this software. 
+
+, i.e. the models published at Huggingface model hub ([qanom-seq2seq-model-baseline](https://huggingface.co/kleinay/qanom-seq2seq-model-baseline) and [qanom-seq2seq-model-joint](https://huggingface.co/kleinay/qanom-seq2seq-model-joint)).  
+
 
 ## Pre-requisite
 * Python 3.7
@@ -16,222 +28,149 @@ git clone https://github.com/kleinay/QANom.git
 cd QANom
 pip install requirements.txt
 ```
-## Dataset
 
-The original QANom Dataset can be downloaded from this
- [google drive directory](https://drive.google.com/drive/folders/15PHKVdPm65ysgdkV47z6J_73kETk7_of).
- 
- Alternatively, if you are working with Huggingface's [Datasets](https://github.com/huggingface/datasets) library or are willing to install it (`pip install datasets`), 
- you can retrieve the QANom datasets by:
- ```python
- import datasets
- qanom_dataset = datasets.load_dataset('biu-nlp/qanom')
- ```
+## End-to-End Pipeline 
 
-## Crowdsourcing QANom via MTurk
+If you wish to parse sentences with QANom, the best place to start is the `QANomEndToEndPipeline` class from the `qanom.qanom_end_to_end_pipeline` module.
 
-The QANom dataset was collected through [Amazon Mechanical Turk](https://www.mturk.com/) (MTurk). 
-It was annotated by pre-selected crowd workers who exhibited good performance when previously annotating QA-SRL.
-Workers first thoroughly read and comprehend the **annotation guidelines** - 
-both for [question generation](https://docs.google.com/presentation/d/1AGLdjilE4GDaF1ybXaS4JXabGLrfK58W1p6mteU_yrw/present?slide=id.p) 
-and for [QA consolidation](https://docs.google.com/presentation/d/1ECharO3EKCabVDx_PYVUDfbdgYJ0uKu5sRo165OSNXM/present?slide=id.p).
-   
-We adjusted (on a side branch) the [qasrl-crowdsourcing](https://github.com/kleinay/qasrl-crowdsourcing/tree/qanom_unified_oneverb) software 
-in order to run the QANom Annotation task interface on MTurk. 
-The QANom annotation pipeline is different from QA-SRL pipeline in three aspects:
-1. QANom annotation is running after raw sentences have been preprocessed with the `candidate_extraction` module, 
-which results in a JSON file describing the nominalization candidates and their heuristically extracted verbal counterparts (`verb_form`). 
-In our branch, the `qasrl-crowdsourcing` system is expecting this JSON input instead of raw text input. 
-2. The annotation tasks are running on MTurk, but only workers granted with our *Qualifications* can work on the task.
-There are unique qualifications for the different annotation life-cycle phases (Trap, Training, Production) 
-as well of for the different tasks (Generation, Consolidation).   
-3. In the QANom task interface, the QA-SRL annotation phase 
-(i.e. generating QA-SRL questions and highlighting their answers in the sentence) 
-is preceded with a predicate detection yes/no question.
+This pipeline is first running the [Nominalization Detector](https://huggingface.co/kleinay/nominalization-candidate-classifier) for identifying the nominal predicates in the sentence (see [demo](https://huggingface.co/spaces/kleinay/nominalization-detection-demo)).
+Then, it sends each nominal predicate to the [QAnom-Seq2Seq model](https://huggingface.co/kleinay/qanom-seq2seq-model-joint) (see [demo](https://huggingface.co/spaces/kleinay/qanom-seq2seq-demo)) to parse them with Question-Answer driven Semantic Role Labeling (QASRL).
 
-**Note**: the original [qasrl-crowdsourcing](https://github.com/julianmichael/qasrl-crowdsourcing) 
-package has been refactored since our usage, which might result in some installation errors. 
-Feel free to contact us for guidance.  
+**Usage Example**
 
-
-## Candidate Extraction
-You can use the candidate extraction module to for several purposes:
-1. As a pre-processing for the QANom crowd-annotation task
-2. As a pre-processing for the `predicate_detector` model
-3. For custom usage.
-
-### Module-specific pre-requisite 
-```bash
-pip install pandas nltk git+git://github.com/pattern3/pattern
+```python
+from qanom.qanom_end_to_end_pipeline import QANomEndToEndPipeline
+pipe = QANomEndToEndPipeline(detection_threshold=0.75)
+sentence = "The construction of the officer 's building finished right after the beginning of the destruction of the previous construction ."
+print(pipe([sentence]))
 ```
 
-### Usage
-```bash
-python qanom/extract_candidates.py <input_file> <output_file> --read csv|josnl|raw --write csv|json [--no-wordnet] [--no-catvar] [--no-affixes]
-```
-The script handle three input formats:
-* `csv` (default): a comma-separated file, with a `sentence` column stating the raw string of the sentence, 
-and a `sentence_id` or `qasrl_id` column for sentence identifiers.   
-* `jsonl`: a JSON-lines file, similar to AllenNLP predictors' inputs- each line is `{"sentence": <actual sentence string> }`. 
-* `raw`: text file, each sentence is in a new line.
-
-The script handle two output formats:
-* `json` (default): used as input in the `qasrl-crowdsourcing` system when crowdsourcing QANom annotations.
-* `csv`: QANom Dataset common format. This is the format which the `predicate_detector` model expects as input.
-
-By default, the module uses (the union of) all three filters - `wordnet`, `catvar`, and `affixes_heuristic` (see specification below). 
-One can deactivate a filter using the `[--no-wordnet] [--no-catvar] [--no-affixes]` boolean flags.
-
-
-**Implementation Details**: 
-
-The entry point is the module file `qanom\candidate_extraction\candidate_extraction.py`. 
-
-The module uses a POS tagger to `pos_tag` the sentence, and filter outs anything except common nouns (`get_common_nouns`). 
-Then, it applies another filter - an "or" combination of two kinds of lexical-based filtering algorithms:
-1. Lexical Resources based - Use WordNet & CatVar derivations. Any noun with verbal related derivation would be predicted as nom.
-2. Affixes + seed based - Create a (possible-nominalization -> verb) list out of a verb seed list, using simple nominalization-suffixes substitution rules. 
-Being in the list will be considered as being a nominalization candidate.
-
-Filter 1 (`wordnet_util.py` + `catvar.py`) requires 
-wordnet (available via [nltk](https://www.nltk.org/)) and [CatVar](https://clipdemos.umiacs.umd.edu/catvar/).
-Run `./scripts/download_catvar.sh` for downloading CatVar into the `resources` directory.
-
-Filter 2 (`verb_to_nom.py`) uses [pattern.en](https://www.clips.uantwerpen.be/pages/pattern-en) package (`pip install git+git://github.com/pattern3/pattern`).
- The package is not maintained by the authors and contain a few minor errors that is easy to fix on your local installation.
- The version we are installing here works only for Windows. on Linux, use `--no-affixes` to disable this filter. 
-
-If there are multiple derivationally related verbs, we select the verb that minimizes the edit distance with the noun. 
-
-# Models
-
-The instructions in this section assume you have cloned the QANom repo, and your working directory is the QANom directory. 
-
-## QANom Predicate Detector
-The `predicate_detector` classifies nominalization candidates (extracted with the `candidate_extraction` module) as verbal vs. non-verbal. 
-We supply a [model](https://drive.google.com/file/d/1qiyQCL19ktZETbPWk_5TT2oCFSFYk6QJ/view?usp=sharing) based on a vanilla BERT-based model 
-implemented by fine-tuning bert-base-cased pre-trained model on QANom dataset.
-
-1. Format data to generate files in CoNLL format given the CSV files produced during candidate
- extraction.
-```bash
-python qanom/predicate_detector/prepare_qanom_data.py [--INPUT_DIR input_dir] [--OUTPUT_DIR
- output_dir]
-```
-
-2. If you want to train a new model (else, you can skip to the next step and use the pretrained model):
-```bash
-sh qanom/predicate_detector/train_nom_id.sh
-```
-
-3. Predict using a trained model:
-```bash
-sh qanom/predicate_detector/predict_nom_id.sh
-```
-
-4. Convert CoNLL file produced by predicate detector to QANom's CSV format given the CSV input file:
- produced during candidate extraction.
-```bash
-python qanom/predicate_detector/convert_conll_to_qanom_csv.py [--INPUT_CONLL_FILE input_conll_file]
-                                     [--INPUT_CSV_FILE input_csv_file]
-                                     [--OUTPUT_FILE output_file]
-```
-
-## QANom Baseline parser 
-The `qanom_parser` is essentially the [nrl-qasrl](https://github.com/kleinay/nrl-qasrl/tree/qanom) parser for QA-SRL, presented in 
-[*Large-Scale QA-SRL Parsing* (FitzGerald et. al., 2018)](https://www.aclweb.org/anthology/P18-1191/).
-To adapt the parser to QANom specifications (e.g. that the verb in the question is not the predicate itself) 
-and format (csv), we have our own `qanom` branch on the `nrl-qasrl` repository. This branch uses the `qanom` package.
-Run `./scripts/setup_parser.sh` to clone the parser into `qanom_parser` directory and prepare its prerequisites.
-Then `cd qanom_parser` to run model-related commands as those described for the rest of this section.
-
-### Training models
-Follow the `README` in `qanom_parser` for instructions on training new verbal QA-SRL models.
-
-A QANom parser is trained using a CSV file (QANom format) as input, with the `QANomReader` DatasetReader 
-(in `nrl/data/dataset_readers/qanom_reader.py`). 
-You should specify the path of the input files in the `jsonnet` config files.
-For example: 
-
-```bash
-# first train a span-predictor for identifying answer spans (i.e. arguments)
-allennlp train configs/train_qanom_span_elmo.jsonnet --include-package nrl -s ../models/<span-model-name> 
-
-# then train the question-generator model, predicting QA-SRL question slots given an answer-span
-allennlp train configs/train_qanom_quesgen_bert.jsonnet --include-package nrl -s ../models/<quesgen-model-name> 
-
-# Combine span-model and quesgen model into one model, which can then be run for prediction
-python scripts/combine_models.py --span ./models/<span-model-name> --ques ../models/<quesgen-model-name> --out ../models/<full-model-name>.tar.gz
-```
-   
-If you want to use the trained parsers from the Large Scale QA-SRL (2018) and the QANom (2020) papers, 
-run `./qanom_parser/scripts/download_pretrained.sh`. This downloads both `qasrl_parser_elmo` and `qanom_parser_elmo` 
-full models into `./models` directory (which is where we suggest to put your own models if you train any). 
-
-### Inference 
-
-To run prediction on new texts, you can use the `allennlp predict` command:
-```bash
-allennlp predict <model-dir-or-archive> <input-file> --include-package nrl --predictor qanom_parser --output-file <output-file>
-```
-This takes a JSON-lines <input-file>, with one line for each sentence, in the following format:
- ```json
-{"qasrl_id": "Wiki1k:wikinews:1007169:1:0", "sentence": "She said in a statement : `` With an amazing portfolio of cars and trucks and the strongest financial performance in our recent history , this is an exciting time at today 's GM .", "predicate_indices": [4, 19], "verb_forms": ["state", "perform"]}
-```
-where "qasrl_id" is optional (and can be alternatively named "sentence_id" or "SentenceId"). 
-Notice this input format requires more information than the `qasrl_parser` predictor 
-(i.e., additional "predicate_indices" and "verb_forms" fields). 
-This is because it expects a predicate detector module to pre-identify the nominal predicates 
-for which it will generate QA annotations, along with their corresponding verbs.
-Also note that no tokenizer model is applied on the sentence string - 
-we assume the sentence is pre-tokenized (and joined with spaces).
-  
-The output-file will also be a JSON-lines file, in the following format:
+Output:
 ```json
-{
-	"words": ["She", "said", "in", "a", "statement", ":", "``", "With", "an", "amazing", "portfolio", "of", "cars", "and", "trucks", "and", "the", "strongest", "financial", "performance", "in", "our", "recent", "history", ",", "this", "is", "an", "exciting", "time", "at", "today", "'s", "GM", "."],
-	"verbs": [
-		{
-			"verb": "state",
-			"qa_pairs": [
-				{
-					"question": "Who stated something?",
-					"spans": [{"start": 0,"end": 0,"text": "She","score": 0.42914873361587527}],
-					"slots": {"wh": "who","aux": "_","subj": "_","verb_slot_inflection": "Past","obj": "something","prep": "_","obj2": "_","is_passive": "False","is_negated": "False"}
-				}
-			],
-			"index": 4
-		},
-		...
-	],
-	"qasrl_id": "Wiki1k:wikinews:1007169:1:0"
+[[{'QAs': [{'question': 'what was constructed ?',
+     'answers': ["the officer 's"]}],
+   'predicate_idx': 1,
+   'predicate': 'construction',
+   'predicate_detector_probability': 0.7623529434204102,
+   'verb_form': 'construct'},
+  {'QAs': [{'question': 'what began ?',
+     'answers': ['the destruction of the']}],
+   'predicate_idx': 11,
+   'predicate': 'beginning',
+   'predicate_detector_probability': 0.8923847675323486,
+   'verb_form': 'begin'},
+  {'QAs': [{'question': 'what was destructed ?', 
+     'answers': ['the previous']}],
+   'predicate_idx': 14,
+   'predicate': 'destruction',
+   'predicate_detector_probability': 0.849774956703186,
+   'verb_form': 'destruct'}]]
+```
+
+## Nominalization Detection Model
+
+This model identifies "predicative nominalizations", that is, nominalizations that carry an eventive (or "verbal") meaning in context. It is a `bert-base-cased` pretrained model, fine-tuned for token classification on top of the "nominalization detection" task as defined and annotated by the QANom project.
+
+The model is trained as a binary classifier, classifying candidate nominalizations. 
+The candidates are extracted using a POS tagger (filtering common nouns) and additionally lexical resources (e.g. WordNet and CatVar), filtering nouns that have (at least one) derivationally-related verb. In the QANom annotation project, these candidates are given to annotators to decide whether they carry a "verbal" meaning in the context of the sentence. The current model reproduces this binary classification. 
+
+Under the hood, the `NominalizationDetector` class encapsulates the full nominalization detection pipeline (i.e. candidate extraction + predicate classification).
+It leverages the `qanom.candidate_extraction.candidate_extraction.py` module, and additionally downloads and wraps the [nominalization-candidate-classifier](https://huggingface.co/kleinay/nominalization-candidate-classifier) model, hosted at Huggingface model hub.
+
+**Usage Example**
+
+ ```python
+from qanom.nominalization_detector import NominalizationDetector
+detector = NominalizationDetector()
+ 
+raw_sentences = ["The construction of the officer 's building finished right after the beginning of the destruction of the previous construction ."]
+
+print(detector(raw_sentences, return_all_candidates=True))
+print(detector(raw_sentences, threshold=0.75, return_probability=False))
+```   
+
+Outputs:
+```json
+[[{'predicate_idx': 1,
+   'predicate': 'construction',
+   'predicate_detector_prediction': True,
+   'predicate_detector_probability': 0.7626778483390808,
+   'verb_form': 'construct'},
+  {'predicate_idx': 4,
+   'predicate': 'officer',
+   'predicate_detector_prediction': False,
+   'predicate_detector_probability': 0.19832570850849152,
+   'verb_form': 'officer'},
+  {'predicate_idx': 6,
+   'predicate': 'building',
+   'predicate_detector_prediction': True,
+   'predicate_detector_probability': 0.5794129371643066,
+   'verb_form': 'build'},
+  {'predicate_idx': 11,
+   'predicate': 'beginning',
+   'predicate_detector_prediction': True,
+   'predicate_detector_probability': 0.8937646150588989,
+   'verb_form': 'begin'},
+  {'predicate_idx': 14,
+   'predicate': 'destruction',
+   'predicate_detector_prediction': True,
+   'predicate_detector_probability': 0.8501205444335938,
+   'verb_form': 'destruct'},
+  {'predicate_idx': 18,
+   'predicate': 'construction',
+   'predicate_detector_prediction': True,
+   'predicate_detector_probability': 0.7022264003753662,
+   'verb_form': 'construct'}]]
+```
+```json
+[[{'predicate_idx': 1, 'predicate': 'construction', 'verb_form': 'construct'},
+  {'predicate_idx': 11, 'predicate': 'beginning', 'verb_form': 'begin'},
+  {'predicate_idx': 14, 'predicate': 'destruction', 'verb_form': 'destruct'}]]
+```
+  
+
+## QANom Sequence-to-Sequence Models 
+
+We have finetuned T5, a pretrained Seq-to-Seq language model, on the task of parsing QANom QAs. 
+Given a sentence and a highlighted nominal predicate, the models produce an output sequence consisting of the QANom-formatted question-answer pairs for this predicate.
+
+We currently have two models:
+
+`qanom-seq2seq-model-baseline` ([HF repo](https://huggingface.co/kleinay/qanom-seq2seq-model-baseline)) - trained only on the QANom dataset. Performance: 57.6 Unlabled Arg F1, 34.9 Labeled Arg F1. 
+`qanom-seq2seq-model-joint` ([HF repo](https://huggingface.co/kleinay/qanom-seq2seq-model-joint)) - trained jointly on the QANom and verbal QASRL. Performance: 60.1 Unlabled Arg F1, 40.6 Labeled Arg F1. 
+
+We provide the `QASRL_Pipeline` class (at `qanom.qasrl_seq2seq_pipeline) which is a Huggingface Pipeline for applying the models out-of-the-box on new texts:
+
+```python
+from pipeline import QASRL_Pipeline
+pipe = QASRL_Pipeline("kleinay/qanom-seq2seq-model-baseline")
+pipe("The student was interested in Luke 's <predicate> research about see animals .", verb_form="research", predicate_type="nominal")
+``` 
+Which will output:
+```json
+[{'generated_text': 'who _ _ researched something _ _ ?<extra_id_7> Luke', 
+  'QAs': [{'question': 'who researched something ?', 'answers': ['Luke']}]}]
+```   
+You can learn more about using `transformers.pipelines` in the [official docs](https://huggingface.co/docs/transformers/main_classes/pipelines).
+
+Notice that you need to specify which word in the sentence is the predicate, about which the question will interrogate. By default, you should precede the predicate with the `<predicate>` symbol, but you can also specify your own predicate marker:
+```python
+pipe("The student was interested in Luke 's <PRED> research about see animals .", verb_form="research", predicate_type="nominal", predicate_marker="<PRED>")
+```
+In addition, you can specify additional kwargs for controling the model's decoding algorithm:
+```python
+pipe("The student was interested in Luke 's <predicate> research about see animals .", verb_form="research", predicate_type="nominal", num_beams=3)
+```
+
+
+## Cite
+
+ ```latex
+ @inproceedings{klein2020qanom,
+  title={QANom: Question-Answer driven SRL for Nominalizations},
+  author={Klein, Ayal and Mamou, Jonathan and Pyatkin, Valentina and Stepanov, Daniela and He, Hangfeng and Roth, Dan and Zettlemoyer, Luke and Dagan, Ido},
+  booktitle={Proceedings of the 28th International Conference on Computational Linguistics},
+  pages={3069--3083},
+  year={2020}
 }
-```
-
-This is the same output format as of the QA-SRL parser, 
-which is why predicates are called "verbs" even though for QANom they are nominal. 
-
-#### Predicting from and to QANom CSV format
-For running the QANom predictor on CSV-formatted input file - as those outputted by `predicate_detector`, 
-with nominal predicate information (crucially, `target_idx` and `is_verbal` columns) - run:
-```bash
-python scripts/convert_csv_to_jsonl_input_for_predictor.py <qanom-predicate-data.csv>
-```
-This will generate a file in the JSON-lines format expected by `qanom_predictor`. 
-The output file would have the same name as the input except for the file extension (`qanom-predicate-data.jsonl`).
-
-
-To convert the predictor's output back into QANom's CSV format, run:
-```bash
-python scripts/convert_predictor_output_to_csv.py <predicted-qanom.jsonl>
-```
-Similarly, this would generate a `predicted-qanom.csv` file in a format equivalent to the QANom Dataset files.
-
-## Evaluate
-Given two QANom CSV files, e.g. `predicted.csv` and `gold.csv`, evaluate *predicted* with *gold* as reference using the command:
-```bash
-python qanom/evaluate predicted.csv gold.csv
-```
-
-## Run QANom end-to-end pipeline
-todo
+ ``` 
