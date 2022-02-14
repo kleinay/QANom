@@ -46,7 +46,7 @@ print(pipe([sentence]))
 ```
 
 Output:
-```json
+```python
 [[{'QAs': [{'question': 'what was constructed ?',
      'answers': ["the officer 's"]}],
    'predicate_idx': 1,
@@ -90,7 +90,7 @@ print(detector(raw_sentences, threshold=0.75, return_probability=False))
 ```   
 
 Outputs:
-```json
+```python
 [[{'predicate_idx': 1,
    'predicate': 'construction',
    'predicate_detector_prediction': True,
@@ -122,7 +122,7 @@ Outputs:
    'predicate_detector_probability': 0.7022264003753662,
    'verb_form': 'construct'}]]
 ```
-```json
+```python
 [[{'predicate_idx': 1, 'predicate': 'construction', 'verb_form': 'construct'},
   {'predicate_idx': 11, 'predicate': 'beginning', 'verb_form': 'begin'},
   {'predicate_idx': 14, 'predicate': 'destruction', 'verb_form': 'destruct'}]]
@@ -147,7 +147,7 @@ pipe = QASRL_Pipeline("kleinay/qanom-seq2seq-model-baseline")
 pipe("The student was interested in Luke 's <predicate> research about see animals .", verb_form="research", predicate_type="nominal")
 ``` 
 Which will output:
-```json
+```python
 [{'generated_text': 'who _ _ researched something _ _ ?<extra_id_7> Luke', 
   'QAs': [{'question': 'who researched something ?', 'answers': ['Luke']}]}]
 ```   
