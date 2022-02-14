@@ -19,7 +19,6 @@ setuptools.setup(
     install_requires=[
         'transformers>=2.11.0',
         'torch>=1.4',
-        'Docassemble-Pattern',
         'nltk',
         'pandas',
         'tqdm',
