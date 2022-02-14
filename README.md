@@ -12,8 +12,6 @@ The repo also consists software for using QANom downstream.
 This mainly includes pipelines for easy usage of the [nominalization detection model](#nominalization-detection-model) and of the [QANom parsers](#qanom-sequence-to-sequence-model). 
 This README will guide you through using this software. 
 
-, i.e. the models published at Huggingface model hub ([qanom-seq2seq-model-baseline](https://huggingface.co/kleinay/qanom-seq2seq-model-baseline) and [qanom-seq2seq-model-joint](https://huggingface.co/kleinay/qanom-seq2seq-model-joint)).  
-
 
 ## Pre-requisite
 * Python 3.7
