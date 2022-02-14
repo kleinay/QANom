@@ -10,3 +10,4 @@ model/predicate_detector
 .QANom
 *.DS_Store
 tmp
+output*
