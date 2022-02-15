@@ -1,3 +1,4 @@
+include qanom/resources/verb-to-nom-heuristic/nom_verb_pairs.txt
 include qanom/resources/catvar/catvar21.signed
 include qanom/resources/catvar/LICENSE.txt
 include qanom/resources/catvar/README.md
