@@ -44,7 +44,7 @@ class QANomEndToEndPipeline():
                 model_output = self.qa_pipeline(model_input, 
                                                 verb_form=pred_info['verb_form'], 
                                                 predicate_type="nominal",
-                                                **generate_kwargs)
+                                                **generate_kwargs)[0]
                 predicates_full_info = dict(QAs=model_output['QAs'], **pred_info)
                 predicates_full_infos.append(predicates_full_info)
             outputs.append(predicates_full_infos)
