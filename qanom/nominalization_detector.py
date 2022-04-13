@@ -42,7 +42,7 @@ class NominalizationDetector():
         grouped_df = cand_df.groupby('sentenceId') 
         input_sent_df = pd.DataFrame()  # model is sentence level, so prepare input at sentence level
         input_sent_df["words"] = grouped_df.tokSent.first()
-        input_sent_df["sent_idx"] = int(grouped_df.sentenceId.first())
+        input_sent_df["sent_idx"] = grouped_df.sentenceId.first().astype(int) #int(grouped_df.sentenceId.first())
         input_sent_df["target_idxs"] = grouped_df.targetIdx.apply(list)
         input_sent_df["verb_forms"] = grouped_df.verbForms.apply(lambda r: [l[0] for l in r])
 
