@@ -152,7 +152,7 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
 
     def postprocess(self, model_outputs):
         output_seq = self.tokenizer.decode(
-            model_outputs["output_ids"][0],
+            model_outputs["output_ids"].squeeze(),
             skip_special_tokens=False,
             clean_up_tokenization_spaces=False,
         )
