@@ -219,7 +219,8 @@ def get_candidate_nouns(sentences: Dict[str, str], **resources) -> List[Dict[str
     all_candidates = []
     for sid, sentence in sentences.items():
         # POS-tagging and tokenize are dependant, so doing both together
-        tokenizedSent, posTaggedSent = tokenize_and_pos_tag(sentence)
+        # tokenizedSent, posTaggedSent = tokenize_and_pos_tag(sentence)
+        tokenizedSent, posTaggedSent = sentence
         for idx, nn in get_common_nouns(posTaggedSent):
             verb_forms, is_had_verbs = get_verb_forms_from_lexical_resources(nn, **resources)
             # take only common nouns that have optional verb-forms as candidates:

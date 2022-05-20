@@ -7,6 +7,7 @@ from transformers import AutoModelForTokenClassification, AutoTokenizer
 import pandas as pd
 
 from qanom.candidate_extraction.candidate_extraction import extract_candidate_nouns
+from qanom.candidate_extraction.candidate_extraction import tokenize_and_pos_tag
 
 def dict_without(orig_dict: Dict[Any, Any], keys_to_remove: Iterable[Any]) -> Dict[Any, Any]:
     new_dict = orig_dict.copy()
@@ -26,13 +27,22 @@ class NominalizationDetector():
     def __call__(self, raw_sentences: Iterable[str], 
                  return_all_candidates: bool = False, 
                  return_probability: bool = True,
-                 threshold: float = 0.5):
+                 threshold: float = 0.5,
+                 sentences_tokens_pos: Iterable[str] = None):
         """
+        tokens_pos: list of tuple s.t. tuple[0] = tokens sentence and tuple[1] = POS of sentence
         Returns a list (sized as `raw_sentences`) of lists of nominalization infos (dicts). 
         """
         # use qanom's candidate_extraction module to identify candidates, i.e. nouns with morphologically-related verbs (using lexical resources)
-        sentences_dict = {str(i): s for i,s in enumerate(raw_sentences)}
-        candidate_infos: List[Dict[str, Any]] = extract_candidate_nouns(sentences_dict, "dict")
+        # sentences_dict = {str(i): s for i,s in enumerate(raw_sentences)}
+
+        if sentences_tokens_pos:
+            sentences_tok_pos_dict = {str(i): token_and_pos for i, token_and_pos in enumerate(sentences_tokens_pos)}
+        else:
+            sentences_tok_pos_dict = {str(i): tokenize_and_pos_tag(s) for i, s in enumerate(raw_sentences)}
+
+        candidate_infos: List[Dict[str, Any]] = extract_candidate_nouns(sentences_tok_pos_dict, "dict")
+        # candidate_infos: List[Dict[str, Any]] = extract_candidate_nouns(sentences_dict, "dict")
         # keys: 'sentenceId', 'tokSent', 'targetIdx', 'verbForms'
         
         # edge case - candidate_infos is totally empty
