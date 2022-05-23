@@ -21,7 +21,7 @@ Logic building blocks:
 """
 
 import json, os, sys
-from typing import List, Tuple, Iterable, Dict, Any
+from typing import List, Tuple, Iterable, Dict, Any, Optional
 
 import pandas as pd
 import nltk
@@ -99,19 +99,16 @@ def get_sentences_from_csv(csv_fn):
     return dict(records)
 
 
-def tokenize_and_pos_tag(sentence):
+def pos_tag_sentence(sentence: str) -> List[Tuple[str, str]]:
     """
     Apply CoreNLP POS-Tagger on sentences.
     CoreNLP is running on server, so use it to be compatible with the qasrl-crowdsourcing POS tagging
     :param sentence: unicode string
-    :return:
-     pos is [ (token, POS) for each token in sentence ]
-     tok is [ tok for each token in sentence ]
-     returning (tok, pos)
+    :returns:
+      [ (token, POS) for each token in sentence ]
     """
-    pos_tagged = list(pos_tag(sentence.split(" ")))
-    tokenized = [e[0] for e in pos_tagged]
-    return tokenized, pos_tagged
+    pos_tagged_sentence = list(pos_tag(sentence.split(" ")))
+    return pos_tagged_sentence
 
 
 # get common nouns ("NN", "NNS")
@@ -211,7 +208,17 @@ def get_sentences_from_iterable(sentences: Iterable[str]) -> Dict[str, str]:
 
 
 # the "core" function of extracting candidates from sentences
-def get_candidate_nouns(sentences: Dict[str, str], **resources) -> List[Dict[str, Any]]:
+def get_candidate_nouns_from_pos_tagged_sentences(pos_tagged_sentences_dict: Dict[str, List[Tuple[str, str]]], **resources) -> List[Dict[str, Any]]:
+    """
+    @:param sentences: {sentence_id : sentence_string}
+    Returns: list of candidate_info (dict)
+    """
+    all_candidates = []
+    for sid, posTaggedSent in pos_tagged_sentences_dict.items():
+        all_candidates.extend(get_sentence_candidate_nouns(posTaggedSent, sid, **resources))
+    return all_candidates
+                
+def get_candidate_nouns_from_raw_sentences(sentences: Dict[str, str], **resources) -> List[Dict[str, Any]]:
     """
     @:param sentences: {sentence_id : sentence_string}
     Returns: list of candidate_info (dict)
@@ -219,29 +226,37 @@ def get_candidate_nouns(sentences: Dict[str, str], **resources) -> List[Dict[str
     all_candidates = []
     for sid, sentence in sentences.items():
         # POS-tagging and tokenize are dependant, so doing both together
-        # tokenizedSent, posTaggedSent = tokenize_and_pos_tag(sentence)
-        tokenizedSent, posTaggedSent = sentence
-        for idx, nn in get_common_nouns(posTaggedSent):
-            verb_forms, is_had_verbs = get_verb_forms_from_lexical_resources(nn, **resources)
-            # take only common nouns that have optional verb-forms as candidates:
-            if is_had_verbs:
-                candidate_info = {"sentenceId": sid,
-                                  "tokSent" : tokenizedSent,
-                                  "targetIdx": idx,
-                                  "verbForms": verb_forms[:5]}
-
-                all_candidates.append(candidate_info)
+        posTaggedSent: List[Tuple[str, str]] = pos_tag_sentence(sentence)
+        all_candidates.extend(get_sentence_candidate_nouns(posTaggedSent, sid, **resources))
     return all_candidates
 
+def get_sentence_candidate_nouns(posTaggedSent: List[Tuple[str, str]], sentence_id: str, **resources):
+    """ 
+    Given a sentence tagged with POS-tags, return a list of candidate-nominalization infos.
+    :param posTaggedSent: is in the form [(word1, pos1), (word2, pos2), ...]
+    """
+    sentence_candidates = []
+    tokenizedSent = [tok for tok, pos in posTaggedSent]
+    for idx, nn in get_common_nouns(posTaggedSent):
+        verb_forms, is_had_verbs = get_verb_forms_from_lexical_resources(nn, **resources)
+        # take only common nouns that have optional verb-forms as candidates:
+        if is_had_verbs:
+            candidate_info = {"sentenceId": sentence_id,
+                                "tokSent" : tokenizedSent,
+                                "targetIdx": idx,
+                                "verbForms": verb_forms[:5]}
+
+            sentence_candidates.append(candidate_info)
+    return sentence_candidates
 
 def export_candidate_info_to_csv(candidates_info: List[Dict[str, Any]], csv_out_fn: str = None) -> pd.DataFrame:
     """
-    Export the noun-candidates info (returned by `get_candidate_nouns`) into a QANom-csv format,
+    Export the noun-candidates info (returned by `get_candidate_nouns_from_...` functions) into a QANom-csv format,
      with columns: 'qasrl_id', 'sentence', 'target_idx', 'noun'.
     It is useful when you want to use a candidate extraction heuristic as a pre-processing for QANom model
     that was trained on QANom data (which is in qanom csv format).
 
-    :param candidates_info: see output of `get_candidate_nouns`
+    :param candidates_info: aggregation of candidate infos, see output of `get_sentence_candidate_nouns`
     :param csv_out_fn: [optional] a file name to write the csv into.
     :return: a DataFrame of the produced CSV
     """
@@ -278,7 +293,7 @@ def extract_candidate_nouns(input: Any,
     else:
         raise NotImplementedError('input_format must be "iterable", "dict", "csv" or "jsonl".')
 
-    candidates = get_candidate_nouns(sentences, **resources)
+    candidates = get_candidate_nouns_from_raw_sentences(sentences, **resources)
     return candidates
 
 

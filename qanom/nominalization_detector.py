@@ -2,12 +2,11 @@
 A unified class for detecting "verbal" nominalizations from raw text -
 wraps both `candidate_extraction` and `predicate_detector`
 """
-from typing import Iterable, List, Dict, Any
+from typing import Iterable, List, Dict, Any, Tuple, Optional
 from transformers import AutoModelForTokenClassification, AutoTokenizer
 import pandas as pd
 
-from qanom.candidate_extraction.candidate_extraction import extract_candidate_nouns
-from qanom.candidate_extraction.candidate_extraction import tokenize_and_pos_tag
+from qanom.candidate_extraction.candidate_extraction import get_candidate_nouns_from_pos_tagged_sentences, pos_tag_sentence
 
 def dict_without(orig_dict: Dict[Any, Any], keys_to_remove: Iterable[Any]) -> Dict[Any, Any]:
     new_dict = orig_dict.copy()
@@ -28,7 +27,7 @@ class NominalizationDetector():
                  return_all_candidates: bool = False, 
                  return_probability: bool = True,
                  threshold: float = 0.5,
-                 sentences_tokens_pos: Iterable[str] = None):
+                 pos_tagged_sentences: Optional[Iterable[List[Tuple[str, str]]]] = None):
         """
         tokens_pos: list of tuple s.t. tuple[0] = tokens sentence and tuple[1] = POS of sentence
         Returns a list (sized as `raw_sentences`) of lists of nominalization infos (dicts). 
@@ -36,13 +35,12 @@ class NominalizationDetector():
         # use qanom's candidate_extraction module to identify candidates, i.e. nouns with morphologically-related verbs (using lexical resources)
         # sentences_dict = {str(i): s for i,s in enumerate(raw_sentences)}
 
-        if sentences_tokens_pos:
-            sentences_tok_pos_dict = {str(i): token_and_pos for i, token_and_pos in enumerate(sentences_tokens_pos)}
+        if pos_tagged_sentences:
+            pos_tagged_sentences_dict = {str(i): token_and_pos for i, token_and_pos in enumerate(pos_tagged_sentences)}
         else:
-            sentences_tok_pos_dict = {str(i): tokenize_and_pos_tag(s) for i, s in enumerate(raw_sentences)}
+            pos_tagged_sentences_dict = {str(i): pos_tag_sentence(s) for i, s in enumerate(raw_sentences)}
 
-        candidate_infos: List[Dict[str, Any]] = extract_candidate_nouns(sentences_tok_pos_dict, "dict")
-        # candidate_infos: List[Dict[str, Any]] = extract_candidate_nouns(sentences_dict, "dict")
+        candidate_infos: List[Dict[str, Any]] = get_candidate_nouns_from_pos_tagged_sentences(pos_tagged_sentences_dict)
         # keys: 'sentenceId', 'tokSent', 'targetIdx', 'verbForms'
         
         # edge case - candidate_infos is totally empty
