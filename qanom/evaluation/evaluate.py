@@ -81,14 +81,14 @@ def eval_datasets(sys_df, grt_df, sent_map= None) \
     return arg_metrics, labeled_arg_metrics, role_metrics, is_nom_counts, all_matchings
 
 
-def get_recall_and_precision_mistakes(sys_df, grt_df) -> (pd.DataFrame, pd.DataFrame):
+def get_recall_and_precision_mistakes(sys_df, grt_df) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """ Return dfs of recall and precision mistakes. """
     all_matchings: pd.DataFrame = eval_datasets(sys_df, grt_df)[-1]
     # take all recall errors - roles which are NA in sys_roles in the alignment
-    recall_mistakes = all_matchings[all_matchings['sys_role'].isna()]
+    recall_mistakes = all_matchings[all_matchings['sys_role'].isna()].copy()
     recall_mistakes['question'] = recall_mistakes['grt_role'].apply(lambda role: role.text)
     # take all precision errors - roles which are NA in grt_roles in the alignment
-    precision_mistakes = all_matchings[all_matchings['grt_role'].isna()]
+    precision_mistakes = all_matchings[all_matchings['grt_role'].isna()].copy()
     precision_mistakes['question'] = precision_mistakes['sys_role'].apply(lambda role: role.text)
     # now produce the subsets from original DataFrames
     cols = ['qasrl_id', 'target_idx', 'question']
