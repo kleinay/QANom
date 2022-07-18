@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Any
 import json
 from argparse import Namespace
 from pathlib import Path
@@ -46,6 +46,9 @@ def load_trained_model(name_or_path):
         model.config.update(preprocessing_kwargs)
     return model, tokenizer
 
+def filterNone(lst: List[Any]) -> List[Any]:
+    """ Return the same list without None elements """
+    return [e for e in lst if e is not None]
 
 class QASRL_Pipeline(Text2TextGenerationPipeline):
     def __init__(self, model_repo: str, **kwargs):
@@ -159,6 +162,7 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
         output_seq = self._strip_output_seq(output_seq)
         qa_subseqs = output_seq.split(self.special_tokens.separator_output_pairs)
         qas = [self._postrocess_qa(qa_subseq) for qa_subseq in qa_subseqs]
+        qas = filterNone(qas)
         return {"generated_text": output_seq,
                 "QAs": qas}
         
@@ -181,7 +185,7 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
         if self.special_tokens.separator_output_question_answer in seq:
             question, answer = seq.split(self.special_tokens.separator_output_question_answer)[:2]
         else:
-            print("invalid format: no separator between question and answer found...")
+            print(f"invalid format: no separator between question and answer found in seq '{seq}'...")
             return None
             # question, answer = seq, '' # Or: backoff to only question  
         # skip "_" slots in questions
