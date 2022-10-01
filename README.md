@@ -134,8 +134,8 @@ Given a sentence and a highlighted nominal predicate, the models produce an outp
 
 We currently have two models:
 
-`qanom-seq2seq-model-baseline` ([HF repo](https://huggingface.co/kleinay/qanom-seq2seq-model-baseline)) - trained only on the QANom dataset. Performance: 57.6 Unlabled Arg F1, 34.9 Labeled Arg F1. 
-`qanom-seq2seq-model-joint` ([HF repo](https://huggingface.co/kleinay/qanom-seq2seq-model-joint)) - trained jointly on the QANom and verbal QASRL. Performance: 60.1 Unlabled Arg F1, 40.6 Labeled Arg F1. 
+* `qanom-seq2seq-model-baseline` ([HF repo](https://huggingface.co/kleinay/qanom-seq2seq-model-baseline)) - trained only on the QANom dataset. Performance: 57.6 Unlabled Arg F1, 34.9 Labeled Arg F1. 
+* `qanom-seq2seq-model-joint` ([HF repo](https://huggingface.co/kleinay/qanom-seq2seq-model-joint)) - trained jointly on the QANom and verbal QASRL. Performance: 60.1 Unlabled Arg F1, 40.6 Labeled Arg F1. 
 
 We provide the `QASRL_Pipeline` class (at `qanom.qasrl_seq2seq_pipeline) which is a Huggingface Pipeline for applying the models out-of-the-box on new texts:
 
