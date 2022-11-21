@@ -18,13 +18,14 @@ class QANomEndToEndPipeline():
     
     def __init__(self, 
                  qanom_model: Optional[str] = None, 
-                 detection_threshold: Optional[float] = None):
+                 detection_threshold: Optional[float] = None,
+                 device: int = -1):
         self.predicate_detector = NominalizationDetector()
         self.detection_threshold = detection_threshold or default_detection_threshold
         
         qanom_model = qanom_model or default_model
         model_url = qanom_models[qanom_model] if qanom_model in qanom_models else qanom_model
-        self.qa_pipeline = QASRL_Pipeline(model_url)
+        self.qa_pipeline = QASRL_Pipeline(model_url, device=device)
     
     def __call__(self, sentences: Iterable[str], 
                  detection_threshold = None,

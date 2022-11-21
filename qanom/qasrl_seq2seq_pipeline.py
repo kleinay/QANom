@@ -51,9 +51,10 @@ def filterNone(lst: List[Any]) -> List[Any]:
     return [e for e in lst if e is not None]
 
 class QASRL_Pipeline(Text2TextGenerationPipeline):
-    def __init__(self, model_repo: str, **kwargs):
+    def __init__(self, model_repo: str, device: int = -1, **kwargs):
+        " :param device: -1 for CPU (default), >=0 refers to CUDA device ordinal. "
         model, tokenizer = load_trained_model(model_repo)
-        super().__init__(model, tokenizer, framework="pt")
+        super().__init__(model, tokenizer, device=device, framework="pt")
         self.is_t5_model = "t5" in model.config.model_type
         self.special_tokens = get_markers_for_model(self.is_t5_model)
         # self.preprocessor = preprocessing.Preprocessor(model.config.preprocessing_kwargs, self.special_tokens)
