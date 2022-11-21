@@ -18,10 +18,12 @@ def dict_without(orig_dict: Dict[Any, Any], keys_to_remove: Iterable[Any]) -> Di
 class NominalizationDetector():    
     original_model_hub_name = "kleinay/nominalization-candidate-classifier"
     
-    def __init__(self, model_hub_name = None):
+    def __init__(self, model_hub_name = None, device: int = -1):
+        "device (int, optional): -1 for CPU (default), >=0 refers to CUDA device ordinal. Defaults to -1."
         self.model_hub_name = model_hub_name or NominalizationDetector.original_model_hub_name
         self.model = AutoModelForTokenClassification.from_pretrained(self.model_hub_name)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_hub_name)
+        self.device = f"cuda:{device}" if device>=0 else "cpu" # represent device in pytorch convention 
 
     def __call__(self, raw_sentences: Iterable[str], 
                  return_all_candidates: bool = False, 
@@ -63,8 +65,9 @@ class NominalizationDetector():
         positive_lbl_id = 0     # because label_map[0] == 'True' 
         negative_lbl_id = 1     # because label_map[1] == 'False' 
         
-        tokenized = self.tokenizer(included_sentences, return_tensors="pt", padding=True)
-        logits = self.model(tokenized.input_ids).logits
+        tokenized = self.tokenizer(included_sentences, return_tensors="pt", padding=True).to(self.device)
+        model = self.model.to(self.device)
+        logits = model(tokenized.input_ids).logits
         # compose binary probability as the mean of positive label's prob with complement of neg. label's prob.
         positive_probability = logits[:,:,positive_lbl_id].sigmoid()   # probability of the "true" label (index 0 in axis-2)
         negative_probability = logits[:,:,negative_lbl_id].sigmoid()

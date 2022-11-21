@@ -20,7 +20,7 @@ class QANomEndToEndPipeline():
                  qanom_model: Optional[str] = None, 
                  detection_threshold: Optional[float] = None,
                  device: int = -1):
-        self.predicate_detector = NominalizationDetector()
+        self.predicate_detector = NominalizationDetector(device=device)
         self.detection_threshold = detection_threshold or default_detection_threshold
         
         qanom_model = qanom_model or default_model
