@@ -92,7 +92,11 @@ all_prepositions_in_dataset = {
      'up for',
      'up with',
      'upon',
-     'without'}
+     'without',
+     } | {'UNK'}
+
+def Prep(prep_: str) -> str:
+    return prep_ if prep_ in all_prepositions_in_dataset else 'UNK'
 
 UNGRAMMATICAL = "Ungrammatical-question" # this role is for predicted question with non-grammatical structure
 """
@@ -120,7 +124,7 @@ def question_to_sem_role(q: Question) -> SemanticRole:
     def get_R2() -> SemanticRole:
         # distinguish direct object-2 or indirect object-2 by presence of preposition
         if q.prep:
-            return SemanticRole("R2_" + q.prep)
+            return SemanticRole("R2_" + Prep(q.prep))
         else:
             return SemanticRole.R2
 
@@ -154,7 +158,7 @@ def question_to_sem_role(q: Question) -> SemanticRole:
     # voice (passive/active) has no effect on adjunct questions
     elif q.wh.lower() in adjunct_wh_words:
         if not q.obj2 and q.prep:
-            return SemanticRole(q.wh + "_" + q.prep)
+            return SemanticRole(q.wh + "_" + Prep(q.prep))
         else:
             return SemanticRole(q.wh)
 
