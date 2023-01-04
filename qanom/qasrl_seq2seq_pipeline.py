@@ -3,6 +3,9 @@ import json
 from argparse import Namespace
 from pathlib import Path
 from transformers import Text2TextGenerationPipeline, AutoModelForSeq2SeqLM, AutoTokenizer
+from qanom.question_info import get_slots, get_role
+
+QASRL_SLOTS =  {"wh", "aux", "subj", "verb_slot_inflection","obj", "prep", "obj2"}
 
 def get_markers_for_model(is_t5_model: bool) -> Namespace:
     special_tokens_constants = Namespace() 
@@ -51,10 +54,15 @@ def filterNone(lst: List[Any]) -> List[Any]:
     return [e for e in lst if e is not None]
 
 class QASRL_Pipeline(Text2TextGenerationPipeline):
-    def __init__(self, model_repo: str, device: int = -1, **kwargs):
+    def __init__(self, model_repo: str, device: int = -1, 
+                 return_question_slots: bool = False, 
+                 return_question_role: bool = False, 
+                 **kwargs):
         " :param device: -1 for CPU (default), >=0 refers to CUDA device ordinal. "
         model, tokenizer = load_trained_model(model_repo)
         super().__init__(model, tokenizer, device=device, framework="pt")
+        self.return_question_slots = return_question_slots
+        self.return_question_role = return_question_role
         self.is_t5_model = "t5" in model.config.model_type
         self.special_tokens = get_markers_for_model(self.is_t5_model)
         # self.preprocessor = preprocessing.Preprocessor(model.config.preprocessing_kwargs, self.special_tokens)
@@ -138,13 +146,14 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
     def _get_source_prefix(self, predicate_type: Optional[str]):
         if not self.is_t5_model or self.data_args.source_prefix is None:
             return ''
-        if "<predicate_type>" in self.data_args.source_prefix:
+        if "<predicate-type>" in self.data_args.source_prefix:
             if predicate_type is None:
-                raise ValueError("source_prefix includes '<predicate_type>' but input has no `predicate_type`.")
-            if self.data_args.source_prefix == "Generate QAs for <predicate_type> QASRL: ": # backwrad compatibility - "Generate QAs for <predicate_type> QASRL: " alone was a sign for a longer prefix 
+                raise ValueError("source_prefix includes '<predicate-type>' but input has no `predicate_type`.")
+            # backwrad compatibility - "<predicate_type>" alone was a sign for a longer prefix - "Generate QAs for <predicate_type> QASRL: "
+            if self.data_args.source_prefix == "<predicate-type>": 
                 return f"Generate QAs for {predicate_type} QASRL: "
             else:
-                return self.data_args.source_prefix.replace("Generate QAs for <predicate_type> QASRL: ", predicate_type)
+                return self.data_args.source_prefix.replace("<predicate-type>", predicate_type)
         else:
             return self.data_args.source_prefix
         
@@ -188,16 +197,30 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
         else:
             print(f"invalid format: no separator between question and answer found in seq '{seq}'...")
             return None
-            # question, answer = seq, '' # Or: backoff to only question  
+            # question, answer = seq, '' # Or: backoff to only question
+        question = question.strip()  
         # skip "_" slots in questions
-        question = ' '.join(t for t in question.split(' ') if t != '_')
+        clean_question = ' '.join(t for t in question.split(' ') if t != '_')
         answers = [a.strip() for a in answer.split(self.special_tokens.separator_output_answers)]
-        return {"question": question, "answers": answers}
+        qa_info = {"question": clean_question, "answers": answers}
+        # Add supplementary information about QASRL question 
+        if self.return_question_slots:
+            slots = get_slots(question, 
+                              append_is_negated_slot=True,
+                              append_is_passive_slot=True,
+                              append_verb_slot_inflection=True)
+            qa_info["question-slots"] = slots
+        if self.return_question_role:
+            role = get_role(question)
+            qa_info["question-role"] = role.name if role else None
+        return qa_info
     
     
 if __name__ == "__main__":
-    pipe = QASRL_Pipeline("kleinay/qanom-seq2seq-model-baseline")
-    res1 = pipe("The student was interested in Luke 's <predicate> research about see animals .", verb_form="research", predicate_type="nominal")
+    pipe = QASRL_Pipeline("kleinay/qanom-seq2seq-model-joint", return_question_slots=True, return_question_role=True)
+    # "kleinay/qanom-seq2seq-model-baseline" seems broken for some reason - need to recover what was its original `source_prefix` during training,
+    # because it had some bugs and performance is ditorted in ways that look related.
+    res1 = pipe("The student was interested in Luke 's <predicate> research about sea animals .", verb_form="research", predicate_type="nominal")
     res2 = pipe(["The doctor was interested in Luke 's <predicate> treatment .",
                  "The Veterinary student was interested in Luke 's <predicate> treatment of sea animals ."], verb_form="treat", predicate_type="nominal", num_beams=10)
     res3 = pipe("A number of professions have <predicate> developed that specialize in the treatment of mental disorders .", verb_form="develop", predicate_type="verbal")

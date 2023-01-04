@@ -13,8 +13,8 @@ Main differences:
  ** decoded: ["he", "John"], [(2,3), (7,8)]
 """
 
-from dataclasses import dataclass, field, asdict
-from typing import List, Iterable, Tuple, Generator
+from dataclasses import dataclass, field, fields, asdict
+from typing import List, Iterable, Tuple, Generator, Dict
 
 import pandas as pd
 
@@ -48,13 +48,28 @@ class Question:
 
     def isEmpty(self) -> bool:
         return self.text == ""
+    
+    @classmethod
+    def from_slots(cls, **slots) -> 'Question':
+        "Take all relevant slots, complement non-given surface slots as empty. Replace '_' values with empty strings."
+        all_slot_names = [field.name for field in fields(Question)]
+        slots.update({sl: False if sl.startswith("is_") else "" 
+                      for sl in set(all_slot_names) - set(slots)})
+        # remove non-relevant
+        slots = {k:v for k,v in slots.items() if k in all_slot_names}
+        q = Question(**slots)
+        # Replace '_' values with empty strings
+        for slot in all_slot_names:
+            if q.__dict__[slot] == "_":
+                q.__dict__[slot] = ""
+        return q
 
     @classmethod
-    def empty(cls):
+    def empty(cls) -> 'Question':
         return Question("", "", "", "", "", "", "", "", "", False, False)
 
     @classmethod
-    def text_only(cls, question_text):
+    def text_only(cls, question_text) -> 'Question':
         return Question(question_text, "", "", "", "", "", "", "", "", False, False)
 
 

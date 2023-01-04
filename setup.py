@@ -23,10 +23,12 @@ setuptools.setup(
         'pandas',
         'tqdm',
         'sklearn',
+        'constrained_decoding', # for `dfa_fill_qasrl_slots` used in `QASRL_Pipeline`
     ],
     package_data={
         "": ["qanom/resources/catvar/catvar21.signed", "qanom/resources/catvar/LICENCE.txt", "qanom/resources/catvar/README.md", 
-             "qanom/resources/verb-to-nom-heuristic/nom_verb_pairs.txt"],
+             "qanom/resources/wiktionary/en_verb_inflections.txt",
+             "qanom/resources/verb-to-nom-heuristic/nom_verb_pairs.txt"] 
     },
     include_package_data=True,
     classifiers=[
