@@ -3,12 +3,14 @@ import json
 from argparse import Namespace
 from pathlib import Path
 from transformers import Text2TextGenerationPipeline, AutoModelForSeq2SeqLM, AutoTokenizer
+
 from qanom.question_info import get_slots, get_role
 
-QASRL_SLOTS =  {"wh", "aux", "subj", "verb_slot_inflection","obj", "prep", "obj2"}
+QASRL_SLOTS = {"wh", "aux", "subj", "verb_slot_inflection", "obj", "prep", "obj2"}
+
 
 def get_markers_for_model(is_t5_model: bool) -> Namespace:
-    special_tokens_constants = Namespace() 
+    special_tokens_constants = Namespace()
     if is_t5_model:
         # T5 model have 100 special tokens by default
         special_tokens_constants.separator_input_question_predicate = "<extra_id_1>"
@@ -16,9 +18,9 @@ def get_markers_for_model(is_t5_model: bool) -> Namespace:
         special_tokens_constants.separator_output_questions = "<extra_id_5>"  # if using only questions
         special_tokens_constants.separator_output_question_answer = "<extra_id_7>"
         special_tokens_constants.separator_output_pairs = "<extra_id_9>"
-        special_tokens_constants.predicate_generic_marker = "<extra_id_10>" 
-        special_tokens_constants.predicate_verb_marker = "<extra_id_11>" 
-        special_tokens_constants.predicate_nominalization_marker = "<extra_id_12>" 
+        special_tokens_constants.predicate_generic_marker = "<extra_id_10>"
+        special_tokens_constants.predicate_verb_marker = "<extra_id_11>"
+        special_tokens_constants.predicate_nominalization_marker = "<extra_id_12>"
 
     else:
         special_tokens_constants.separator_input_question_predicate = "<question_predicate_sep>"
@@ -26,37 +28,40 @@ def get_markers_for_model(is_t5_model: bool) -> Namespace:
         special_tokens_constants.separator_output_questions = "<question_sep>"  # if using only questions
         special_tokens_constants.separator_output_question_answer = "<question_answer_sep>"
         special_tokens_constants.separator_output_pairs = "<qa_pairs_sep>"
-        special_tokens_constants.predicate_generic_marker = "<predicate_marker>" 
-        special_tokens_constants.predicate_verb_marker = "<verbal_predicate_marker>" 
-        special_tokens_constants.predicate_nominalization_marker = "<nominalization_predicate_marker>" 
+        special_tokens_constants.predicate_generic_marker = "<predicate_marker>"
+        special_tokens_constants.predicate_verb_marker = "<verbal_predicate_marker>"
+        special_tokens_constants.predicate_nominalization_marker = "<nominalization_predicate_marker>"
     return special_tokens_constants
+
 
 def load_trained_model(name_or_path):
     import huggingface_hub as HFhub
     tokenizer = AutoTokenizer.from_pretrained(name_or_path)
-    model = AutoModelForSeq2SeqLM.from_pretrained(name_or_path)  
+    model = AutoModelForSeq2SeqLM.from_pretrained(name_or_path)
     # load preprocessing_kwargs from the model repo on HF hub, or from the local model directory
     kwargs_filename = None
     if name_or_path.startswith("kleinay/") and 'preprocessing_kwargs.json' in HFhub.list_repo_files(name_or_path):
         kwargs_filename = HFhub.hf_hub_download(repo_id=name_or_path, filename="preprocessing_kwargs.json")
     elif Path(name_or_path).is_dir() and (Path(name_or_path) / "experiment_kwargs.json").exists():
         kwargs_filename = Path(name_or_path) / "experiment_kwargs.json"
-    
+
     if kwargs_filename:
-        preprocessing_kwargs = json.load(open(kwargs_filename)) 
+        preprocessing_kwargs = json.load(open(kwargs_filename))
         # integrate into model.config (for decoding args, e.g. "num_beams"), and save also as standalone object for preprocessing
         model.config.preprocessing_kwargs = Namespace(**preprocessing_kwargs)
         model.config.update(preprocessing_kwargs)
     return model, tokenizer
 
+
 def filterNone(lst: List[Any]) -> List[Any]:
     """ Return the same list without None elements """
     return [e for e in lst if e is not None]
 
+
 class QASRL_Pipeline(Text2TextGenerationPipeline):
-    def __init__(self, model_repo: str, device: int = -1, 
-                 return_question_slots: bool = False, 
-                 return_question_role: bool = False, 
+    def __init__(self, model_repo: str, device: int = -1,
+                 return_question_slots: bool = False,
+                 return_question_role: bool = False,
                  **kwargs):
         " :param device: -1 for CPU (default), >=0 refers to CUDA device ordinal. "
         model, tokenizer = load_trained_model(model_repo)
@@ -66,7 +71,7 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
         self.is_t5_model = "t5" in model.config.model_type
         self.special_tokens = get_markers_for_model(self.is_t5_model)
         # self.preprocessor = preprocessing.Preprocessor(model.config.preprocessing_kwargs, self.special_tokens)
-        self.data_args = model.config.preprocessing_kwargs 
+        self.data_args = model.config.preprocessing_kwargs
         # backward compatibility - default keyword values implemeted in `run_summarization`, thus not saved in `preprocessing_kwargs`
         if "predicate_marker_type" not in vars(self.data_args):
             self.data_args.predicate_marker_type = "generic"
@@ -75,17 +80,18 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
         if "append_verb_form" not in vars(self.data_args):
             self.data_args.append_verb_form = True
         self._update_config(**kwargs)
-    
+        self.index_verb = 0
+
     def _update_config(self, **kwargs):
         " Update self.model.config with initialization parameters and necessary defaults. "
         # set default values that will always override model.config, but can overriden by __init__ kwargs
         kwargs["max_length"] = kwargs.get("max_length", 80)
         # override model.config with kwargs
-        for k,v in kwargs.items():
-            self.model.config.__dict__[k] = v           
-        
+        for k, v in kwargs.items():
+            self.model.config.__dict__[k] = v
+
     def _sanitize_parameters(self, **kwargs):
-        preprocess_kwargs, forward_kwargs, postprocess_kwargs = {}, {}, {} # super()._sanitize_parameters(**kwargs)
+        preprocess_kwargs, forward_kwargs, postprocess_kwargs = {}, {}, {}  # super()._sanitize_parameters(**kwargs)
         forward_kwargs.update(kwargs.get("generate_kwargs", dict()))
         forward_kwargs.update(kwargs.get("model_kwargs", dict()))
         preprocess_keywords = ("predicate_marker", "predicate_type", "verb_form")
@@ -105,24 +111,26 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
             raise ValueError("inputs must be str or Iterable[str]")
         # Now pass to super.preprocess for tokenization
         return super().preprocess(processed_inputs)
-    
-    def _preprocess_string(self, seq: str, predicate_marker: str, predicate_type: Optional[str], verb_form: Optional[str]) -> str:
+
+    def _preprocess_string(self, seq: str, predicate_marker: str, predicate_type: Optional[str],
+                           verb_form: Optional[str]) -> str:
         sent_tokens = seq.split(" ")
         assert predicate_marker in sent_tokens, f"Input sentence must include a predicate-marker token ('{predicate_marker}') before the target predicate word"
         predicate_idx = sent_tokens.index(predicate_marker)
         sent_tokens.remove(predicate_marker)
         sentence_before_predicate = " ".join([sent_tokens[i] for i in range(predicate_idx)])
         predicate = sent_tokens[predicate_idx]
-        sentence_after_predicate = " ".join([sent_tokens[i] for i in range(predicate_idx+1, len(sent_tokens))])
-        
+        sentence_after_predicate = " ".join([sent_tokens[i] for i in range(predicate_idx + 1, len(sent_tokens))])
+
         if self.data_args.predicate_marker_type == "generic":
-            predicate_marker = self.special_tokens.predicate_generic_marker    
-        #  In case we want special marker for each predicate type: """
+            predicate_marker = self.special_tokens.predicate_generic_marker
+            #  In case we want special marker for each predicate type: """
         elif self.data_args.predicate_marker_type == "pred_type":
             assert predicate_type is not None, "For this model, you must provide the `predicate_type` either when initializing QASRL_Pipeline(...) or when applying __call__(...) on it"
-            assert predicate_type in ("verbal", "nominal"), f"`predicate_type` must be either 'verbal' or 'nominal'; got '{predicate_type}'"
-            predicate_marker = {"verbal": self.special_tokens.predicate_verb_marker , 
-                                "nominal": self.special_tokens.predicate_nominalization_marker 
+            assert predicate_type in (
+            "verbal", "nominal"), f"`predicate_type` must be either 'verbal' or 'nominal'; got '{predicate_type}'"
+            predicate_marker = {"verbal": self.special_tokens.predicate_verb_marker,
+                                "nominal": self.special_tokens.predicate_nominalization_marker
                                 }[predicate_type]
 
         if self.data_args.use_bilateral_predicate_marker:
@@ -132,17 +140,23 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
 
         # embed also verb_form
         if self.data_args.append_verb_form and verb_form is None:
-            raise ValueError(f"For this model, you must provide the `verb_form` of the predicate when applying __call__(...)")
+            raise ValueError(
+                f"For this model, you must provide the `verb_form` of the predicate when applying __call__(...)")
         elif self.data_args.append_verb_form:
-            seq = f"{seq} {self.special_tokens.separator_input_question_predicate} {verb_form} "
+            seq = f"{seq} {self.special_tokens.separator_input_question_predicate} {verb_form[self.index_verb]} "
+            self.index_verb += 1
         else:
             seq = f"{seq} "
-    
+
         # append source prefix (for t5 models)
         prefix = self._get_source_prefix(predicate_type)
-        
+
         return prefix + seq
-    
+
+    def __call__(self, *args, **kwargs):
+        self.index_verb = 0
+        return super().__call__(*args, **kwargs)
+
     def _get_source_prefix(self, predicate_type: Optional[str]):
         if not self.is_t5_model or self.data_args.source_prefix is None:
             return ''
@@ -150,18 +164,16 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
             if predicate_type is None:
                 raise ValueError("source_prefix includes '<predicate-type>' but input has no `predicate_type`.")
             # backwrad compatibility - "<predicate_type>" alone was a sign for a longer prefix - "Generate QAs for <predicate_type> QASRL: "
-            if self.data_args.source_prefix == "<predicate-type>": 
+            if self.data_args.source_prefix == "<predicate-type>":
                 return f"Generate QAs for {predicate_type} QASRL: "
             else:
                 return self.data_args.source_prefix.replace("<predicate-type>", predicate_type)
         else:
             return self.data_args.source_prefix
-        
-    
+
     def _forward(self, *args, **kwargs):
         outputs = super()._forward(*args, **kwargs)
         return outputs
-
 
     def postprocess(self, model_outputs):
         output_seq = self.tokenizer.decode(
@@ -175,7 +187,7 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
         qas = filterNone(qas)
         return {"generated_text": output_seq,
                 "QAs": qas}
-        
+
     def _strip_output_seq(self, output_seq: str) -> str:
         if output_seq.startswith(self.tokenizer.pad_token):
             output_seq = output_seq[len(self.tokenizer.pad_token):]
@@ -183,13 +195,11 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
             output_seq = output_seq.rstrip(self.tokenizer.pad_token)
         if output_seq.endswith(self.tokenizer.eos_token):
             output_seq = output_seq[:-len(self.tokenizer.eos_token)]
-        elif output_seq.endswith(self.tokenizer.eos_token[:-1]):    
-                # because previous pad_token-strip removed ">" from eos_token
+        elif output_seq.endswith(self.tokenizer.eos_token[:-1]):
+            # because previous pad_token-strip removed ">" from eos_token
             output_seq = output_seq[:-len(self.tokenizer.eos_token[:-1])]
         return output_seq.strip()
-            
-        
-            
+
     def _postrocess_qa(self, seq: str) -> str:
         # split question and answers
         if self.special_tokens.separator_output_question_answer in seq:
@@ -198,14 +208,14 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
             print(f"invalid format: no separator between question and answer found in seq '{seq}'...")
             return None
             # question, answer = seq, '' # Or: backoff to only question
-        question = question.strip()  
+        question = question.strip()
         # skip "_" slots in questions
         clean_question = ' '.join(t for t in question.split(' ') if t != '_')
         answers = [a.strip() for a in answer.split(self.special_tokens.separator_output_answers)]
         qa_info = {"question": clean_question, "answers": answers}
-        # Add supplementary information about QASRL question 
+        # Add supplementary information about QASRL question
         if self.return_question_slots:
-            slots = get_slots(question, 
+            slots = get_slots(question,
                               append_is_negated_slot=True,
                               append_is_passive_slot=True,
                               append_verb_slot_inflection=True)
@@ -214,17 +224,21 @@ class QASRL_Pipeline(Text2TextGenerationPipeline):
             role = get_role(question)
             qa_info["question-role"] = role.name if role else None
         return qa_info
-    
-    
+
+
+
 if __name__ == "__main__":
     pipe = QASRL_Pipeline("kleinay/qanom-seq2seq-model-joint", return_question_slots=True, return_question_role=True)
     # "kleinay/qanom-seq2seq-model-baseline" seems broken for some reason - need to recover what was its original `source_prefix` during training,
     # because it had some bugs and performance is ditorted in ways that look related.
-    res1 = pipe("The student was interested in Luke 's <predicate> research about sea animals .", verb_form="research", predicate_type="nominal")
+    res1 = pipe("The student was interested in Luke 's <predicate> research about sea animals .", verb_form="research",
+                predicate_type="nominal")
     res2 = pipe(["The doctor was interested in Luke 's <predicate> treatment .",
-                 "The Veterinary student was interested in Luke 's <predicate> treatment of sea animals ."], verb_form="treat", predicate_type="nominal", num_beams=10)
-    res3 = pipe("A number of professions have <predicate> developed that specialize in the treatment of mental disorders .", verb_form="develop", predicate_type="verbal")
+                 "The Veterinary student was interested in Luke 's <predicate> treatment of sea animals ."],
+                verb_form="treat", predicate_type="nominal", num_beams=10)
+    res3 = pipe(
+        "A number of professions have <predicate> developed that specialize in the treatment of mental disorders .",
+        verb_form="develop", predicate_type="verbal")
     print(res1)
     print(res2)
     print(res3)
-    
