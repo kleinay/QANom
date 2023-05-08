@@ -22,7 +22,7 @@ setuptools.setup(
         'nltk',
         'pandas',
         'tqdm',
-        'sklearn',
+        'scikit-learn',
         'constrained_decoding', # for `dfa_fill_qasrl_slots` used in `QASRL_Pipeline`
     ],
     package_data={
