@@ -125,7 +125,28 @@ Outputs:
   {'predicate_idx': 11, 'predicate': 'beginning', 'verb_form': 'begin'},
   {'predicate_idx': 14, 'predicate': 'destruction', 'verb_form': 'destruct'}]]
 ```
-  
+## SpaCy Custom Component 'nominalization_detector'  
+If you are using SpaCy, you can easily plug-in our nominalization detection algorithm as a custom component into the [SpaCy pipeline](https://spacy.io/usage/processing-pipelines#pipelines). Load the `qanom.spacy_component_nominalization_detector` module to have our "nominalization_detector" component registered by spacy.
+ 
+For example:
+
+```python
+from qanom.spacy_component_nominalization_detector import *
+nlp = spacy.load("en_core_web_sm")
+nlp.add_pipe("nominalization_detector", after="tagger", 
+             config={"threshold": 0.7, "device": -1}) # you may specify config settings or stay with these defaults
+# Now you `nlp` pipeline also identifies verbal nominalizations:
+doc = nlp("The medical student asked about the progress in Luke's treatment.")
+print(doc._.nominalizations)  # a Doc extension attribute with the list of tokens identified as verbal nominalizations
+print([(nn.text, nn._.verb_form, nn._.is_nominalization_confidence) for nn in doc._.nominalizations]) # Token extension attributes
+```
+
+```
+[progress, treatment]
+[('progress', 'progress', 0.8063599467277527),
+ ('treatment', 'treat', 0.8211929798126221)]
+```
+
 
 ## QANom Sequence-to-Sequence Models 
 
