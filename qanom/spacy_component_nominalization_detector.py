@@ -40,32 +40,33 @@ class NominalizationDetectorComponent:
                     token._.verb_form = verb_form
         # Apply classifier at sentence level
         #  Prepare Tokenization
-        tokenized = self.tokenizer(doc.text, return_tensors="pt", padding=True).to(self.device)
-        #  get mapping of word to tokens (for using indexes from dataset)
-        wordId2numOfTokens = [len(self.tokenizer.tokenize(t.text)) for t in doc]
-        wordId2firstTokenId, curr_tok_id = [], 1
-        for wordId in range(len(wordId2numOfTokens)):
-            wordId2firstTokenId.append(curr_tok_id)
-            curr_tok_id += wordId2numOfTokens[wordId]
+        tokenized = self.tokenizer([sent.text for sent in doc.sents], return_tensors="pt", padding=True).to(self.device)
         # Run binary classification model on candidate nouns
         model = self.candidate_classifier.to(self.device)
         logits = model(tokenized.input_ids).logits
         # compose binary probability as the mean of positive label's prob with complement of neg. label's prob.
         positive_lbl_id = 0     # because label_map[0] == 'True' 
         negative_lbl_id = 1     # because label_map[1] == 'False'
-        positive_probability = logits[0,:,positive_lbl_id].sigmoid()   # probability of the "true" label (index 0 in axis-2)
-        negative_probability = logits[0,:,negative_lbl_id].sigmoid()
+        positive_probability = logits[:,:,positive_lbl_id].sigmoid()   # probability of the "true" label (index 0 in axis-2)
+        negative_probability = logits[:,:,negative_lbl_id].sigmoid()
         probability = (positive_probability + (1-negative_probability) ) / 2
         preds = probability > self.threshold
         # iterate over tokens and set `is_nominalization` and `is_nominalization_confidence` attributes for candidate nouns
         nominalizations = []
-        for token in doc:
-            if token._.is_candidate_nominalization:
-                token_id = wordId2firstTokenId[token.i]
-                token._.is_nominalization = preds[token_id].item()
-                token._.is_nominalization_confidence = probability[token_id].item()
-                if token._.is_nominalization:
-                    nominalizations.append(token)
+        for i, sent in enumerate(doc.sents):
+            #  get mapping of word to tokens (for using indexes from dataset)
+            wordId2numOfTokens = [len(self.tokenizer.tokenize(t.text)) for t in sent]
+            wordId2firstTokenId, curr_tok_id = [], 1
+            for wordId in range(len(wordId2numOfTokens)):
+                wordId2firstTokenId.append(curr_tok_id)
+                curr_tok_id += wordId2numOfTokens[wordId]
+            for token_i, token in enumerate(sent):
+                if token._.is_candidate_nominalization:
+                    token_id = wordId2firstTokenId[token_i]
+                    token._.is_nominalization = preds[i][token_id].item()
+                    token._.is_nominalization_confidence = probability[i][token_id].item()
+                    if token._.is_nominalization:
+                        nominalizations.append(token)
                 
         # Add `nominalizations` attribute to doc
         doc._.nominalizations = nominalizations
